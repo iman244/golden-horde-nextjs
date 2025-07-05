@@ -1,26 +1,51 @@
 "use client";
 import { useVoiceChat } from "./hooks/useVoiceChat";
 import { useDeviceEnumeration } from "./hooks/useDeviceEnumeration";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { Horde } from "./data.types";
+import { LogsViewer } from "./components/LogsViewer";
+import { PeerConnectionStatus } from "./components/PeerConnectionStatus";
 
 const django_domain = "192.168.1.101:8000";
 
 export default function Home() {
-  const hordes = useQuery({
+  const [logsModalOpen, setLogsModalOpen] = useState(false);
+
+  const hordes_q = useQuery({
     queryKey: ["hordes"],
-    queryFn: async () => await axios<Horde[]>(`https://${django_domain}/api/hordes/`),
+    queryFn: async () =>
+      await axios<Horde[]>(`https://${django_domain}/api/hordes/`),
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
   });
 
-  useEffect(() => {
-    console.log("hordes", hordes);
-    console.log("hordes", hordes.data?.data);
-  }, [hordes]);
+  const {
+    audioRef,
+    logs,
+    wsLogs,
+    wsLatency,
+    currentTentId,
+    isConnected,
+    peerConnections,
+    joinTent,
+    leaveTent,
+    username,
+  } = useVoiceChat();
 
-  const { audioRef, logs, wsLogs, role, pcStatus, connectionStats, wsLatency } =
-    useVoiceChat("wss://192.168.1.101:8000/ws/voice_chat/1/");
+  // Compute peer status from peer connections
+  const peerStatus = useMemo(() => {
+    const totalPeers = peerConnections.size;
+    const connectedPeers = Array.from(peerConnections.values()).filter(
+      (pc) => pc.connectionState === "connected"
+    ).length;
+
+    return {
+      totalPeers,
+      connectedPeers,
+    };
+  }, [peerConnections]);
 
   // Device enumeration and selection
   const devices = useDeviceEnumeration();
@@ -36,209 +61,550 @@ export default function Home() {
   const [selectedMicId, setSelectedMicId] = useState<string>("");
   const [selectedSpeakerId, setSelectedSpeakerId] = useState<string>("");
 
+  // Handle tent click - join or leave tent
+  const handleTentClick = async (tentId: number) => {
+    if (currentTentId === tentId) {
+      // Leave current tent
+      await leaveTent();
+    } else {
+      // Join new tent
+      await joinTent(tentId);
+    }
+  };
+
   return (
-    <div>
-      <p>welcome to golden horde</p>
-      {/* Microphone selection dropdown */}
-      <div style={{ margin: "1em 0" }}>
-        <label htmlFor="mic-select" style={{ marginRight: 8 }}>
-          Microphone:
-        </label>
-        <select
-          id="mic-select"
-          value={selectedMicId}
-          onChange={(e) => setSelectedMicId(e.target.value)}
-          style={{
-            background: "black",
-          }}
-        >
-          <option value="">Default</option>
-          {audioInputs.map((device) => (
-            <option key={device.deviceId} value={device.deviceId}>
-              {device.label || `Microphone (${device.deviceId.slice(-4)})`}
-            </option>
-          ))}
-        </select>
-      </div>
-      {/* Speaker selection dropdown */}
-      <div style={{ margin: "1em 0" }}>
-        <label htmlFor="speaker-select" style={{ marginRight: 8 }}>
-          Speaker:
-        </label>
-        <select
-          id="speaker-select"
-          value={selectedSpeakerId}
-          onChange={(e) => setSelectedSpeakerId(e.target.value)}
-          style={{
-            background: "black",
-          }}
-        >
-          <option value="">Default</option>
-          {audioOutputs.map((device) => (
-            <option key={device.deviceId} value={device.deviceId}>
-              {device.label || `Speaker (${device.deviceId.slice(-4)})`}
-            </option>
-          ))}
-        </select>
-      </div>
-      
-      <audio
-        ref={audioRef}
-        autoPlay
-        style={{ display: "block", margin: "1em 0" }}
-      />
+    <div
+      style={{
+        display: "flex",
+        minHeight: "100vh",
+        background: "linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%)",
+        fontFamily:
+          'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      }}
+    >
+      {/* Main Content */}
       <div
         style={{
-          background: "#222",
-          color: "#0f0",
-          padding: "1em",
-          marginTop: "1em",
-          fontFamily: "monospace",
-          fontSize: "0.9em",
+          flex: "1",
+          padding: "24px",
+          overflowY: "auto",
+          background: "rgba(0, 0, 0, 0.3)",
+          backdropFilter: "blur(10px)",
         }}
       >
-        <div>
-          <strong>Peer Role:</strong> {role || "unknown"}
+        {/* Username Info Bar */}
+        {username && (
+          <div
+            style={{
+              marginBottom: "16px",
+              padding: "10px 16px",
+              background: "rgba(59,130,246,0.1)",
+              borderRadius: "6px",
+              color: "#3b82f6",
+              fontWeight: 600,
+              fontFamily: "monospace",
+              fontSize: "14px",
+              display: "inline-block",
+            }}
+          >
+            Your username:{" "}
+            <span style={{ color: "#fff", fontWeight: 700 }}>{username}</span>
+          </div>
+        )}
+        {/* Header */}
+        <div
+          style={{
+            marginBottom: "32px",
+            paddingBottom: "20px",
+            borderBottom: "1px solid #333",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <div>
+            <h1
+              style={{
+                margin: "0 0 8px 0",
+                fontSize: "28px",
+                fontWeight: "700",
+                color: "#fff",
+                background: "linear-gradient(45deg, #ffd700, #ffed4e)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+              }}
+            >
+              Golden Horde Voice Chat
+            </h1>
+            <p
+              style={{
+                margin: "0",
+                color: "#9ca3af",
+                fontSize: "14px",
+              }}
+            >
+              Click on a tent to join voice chat
+            </p>
+          </div>
+
+          {/* Logs Button */}
+          <button
+            onClick={() => setLogsModalOpen(true)}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "rgba(59, 130, 246, 0.8)",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "600",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 1)";
+              e.currentTarget.style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 0.8)";
+              e.currentTarget.style.transform = "translateY(0)";
+            }}
+          >
+            📋 View Logs
+          </button>
         </div>
-        <div>Status Log:</div>
-        <ul>
-          {logs.map((log, i) => (
-            <li key={i}>
-              <span
+
+        {/* Hordes List */}
+        <div style={{ marginBottom: "32px" }}>
+          {hordes_q.data?.data.map((h) => (
+            <div
+              key={h.id}
+              style={{
+                marginBottom: "24px",
+                padding: "16px",
+                background: "rgba(255, 255, 255, 0.05)",
+                borderRadius: "8px",
+                border: "1px solid rgba(255, 255, 255, 0.1)",
+              }}
+            >
+              <h3
                 style={{
-                  color:
-                    log.level === "error"
-                      ? "#f55"
-                      : log.level === "warning"
-                      ? "#ff5"
-                      : "#0f0",
+                  margin: "0 0 12px 0",
+                  fontSize: "18px",
+                  fontWeight: "600",
+                  color: "#ffd700",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
                 }}
               >
-                [{log.level || "info"}]
-              </span>{" "}
-              <span style={{ color: "#888", fontSize: "0.85em" }}>
-                {log.timestamp
-                  ? new Date(log.timestamp).toLocaleTimeString()
-                  : ""}
-              </span>{" "}
-              {log.message}
-            </li>
+                🏰 {h.name}
+              </h3>
+              <div style={{ marginLeft: "8px" }}>
+                {h.tents.map((t) => (
+                  <div
+                    key={t.id}
+                    style={{
+                      marginBottom: "12px",
+                      padding: "12px",
+                      background:
+                        currentTentId === t.id
+                          ? "rgba(68, 255, 68, 0.1)"
+                          : "rgba(255, 255, 255, 0.03)",
+                      borderRadius: "6px",
+                      border:
+                        currentTentId === t.id
+                          ? "1px solid rgba(68, 255, 68, 0.3)"
+                          : "1px solid rgba(255, 255, 255, 0.1)",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                        marginBottom: currentTentId === t.id ? "12px" : "0",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          flex: 1,
+                        }}
+                      >
+                        <span style={{ fontSize: "16px" }}>⛺</span>
+                        <span
+                          style={{
+                            color: "#fff",
+                            fontWeight: "500",
+                            fontSize: "14px",
+                          }}
+                        >
+                          {t.name}
+                        </span>
+                        {currentTentId === t.id && (
+                          <span
+                            style={{
+                              color: "#44ff44",
+                              fontSize: "12px",
+                              fontWeight: "600",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                            }}
+                          >
+                            ✓ Connected
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleTentClick(t.id)}
+                        style={{
+                          padding: "8px 16px",
+                          backgroundColor:
+                            currentTentId === t.id ? "#dc2626" : "#059669",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                          fontWeight: "600",
+                          transition: "all 0.2s ease",
+                          minWidth: "80px",
+                          textTransform: "capitalize" as const,
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = "translateY(-1px)";
+                          e.currentTarget.style.boxShadow =
+                            "0 4px 12px rgba(0, 0, 0, 0.3)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = "translateY(0)";
+                          e.currentTarget.style.boxShadow = "none";
+                        }}
+                      >
+                        {currentTentId === t.id ? "Leave" : "Join"}
+                      </button>
+                    </div>
+
+                    {/* WebSocket RTT */}
+                    {isConnected && currentTentId === t.id && (
+                      <div style={{
+                        background: 'rgba(59,130,246,0.15)',
+                        color: '#0ff',
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        marginBottom: '12px',
+                        fontFamily: 'monospace',
+                        fontSize: '13px',
+                        display: 'inline-block'
+                      }}>
+                        WebSocket RTT: {wsLatency !== null && wsLatency !== undefined ? `${wsLatency} ms` : "N/A"}
+                      </div>
+                    )}
+
+                    {/* Connection Status for Connected Tent */}
+                    {currentTentId === t.id && (
+                      <>
+                        {/* Peer Summary */}
+                        <div
+                          style={{
+                            background: "rgba(0, 0, 0, 0.2)",
+                            padding: "8px",
+                            borderRadius: "4px",
+                            marginTop: "12px",
+                            marginBottom: "8px",
+                          }}
+                        >
+                          <div
+                            style={{ marginBottom: "4px", color: "#9ca3af" }}
+                          >
+                            <strong>Peers in Tent:</strong>
+                          </div>
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "1fr 1fr",
+                              gap: "6px",
+                              fontSize: "10px",
+                            }}
+                          >
+                            <div>
+                              <span style={{ color: "#9ca3af" }}>Total:</span>
+                              <div style={{ color: "#fff" }}>
+                                {peerStatus.totalPeers}
+                              </div>
+                            </div>
+                            <div>
+                              <span style={{ color: "#9ca3af" }}>
+                                Connected:
+                              </span>
+                              <div
+                                style={{
+                                  color:
+                                    peerStatus.connectedPeers > 0
+                                      ? "#44ff44"
+                                      : "#ff4444",
+                                }}
+                              >
+                                {peerStatus.connectedPeers}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Peer Connection Status Component */}
+                        {[...peerConnections.entries()].map(([user, pc]) => (
+                          <PeerConnectionStatus
+                            key={user}
+                            user={user}
+                            peerConnection={pc}
+                          />
+                        ))}
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           ))}
-        </ul>
+        </div>
+
+        {/* Connection Status */}
+        {isConnected && (
+          <div
+            style={{
+              background: "linear-gradient(135deg, #059669, #047857)",
+              color: "#fff",
+              padding: "16px",
+              marginBottom: "24px",
+              borderRadius: "8px",
+              border: "1px solid rgba(68, 255, 68, 0.3)",
+              boxShadow: "0 4px 12px rgba(5, 150, 105, 0.2)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <span style={{ fontSize: "16px" }}>🔗</span>
+                <strong>Connected to Tent {currentTentId}</strong>
+              </div>
+              <button
+                onClick={leaveTent}
+                style={{
+                  padding: "6px 12px",
+                  backgroundColor: "rgba(220, 38, 38, 0.8)",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: "600",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor =
+                    "rgba(220, 38, 38, 1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor =
+                    "rgba(220, 38, 38, 0.8)";
+                }}
+              >
+                Leave Tent
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Device Settings */}
         <div
           style={{
-            marginTop: "1em",
-            background: "#111",
-            padding: "1em",
-            borderRadius: "6px",
+            background: "rgba(255, 255, 255, 0.05)",
+            padding: "20px",
+            borderRadius: "8px",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            marginBottom: "24px",
           }}
         >
-          <div>
-            <strong>RTCPeerConnection Status</strong>
+          <h3
+            style={{
+              margin: "0 0 16px 0",
+              fontSize: "16px",
+              fontWeight: "600",
+              color: "#fff",
+            }}
+          >
+            🎤 Audio Settings
+          </h3>
+
+          {/* Microphone selection */}
+          <div style={{ marginBottom: "16px" }}>
+            <label
+              htmlFor="mic-select"
+              style={{
+                display: "block",
+                marginBottom: "6px",
+                color: "#9ca3af",
+                fontSize: "12px",
+                fontWeight: "500",
+              }}
+            >
+              Microphone:
+            </label>
+            <select
+              id="mic-select"
+              value={selectedMicId}
+              onChange={(e) => setSelectedMicId(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                background: "rgba(0, 0, 0, 0.5)",
+                color: "#fff",
+                border: "1px solid rgba(255, 255, 255, 0.2)",
+                borderRadius: "6px",
+                fontSize: "14px",
+                outline: "none",
+                transition: "border-color 0.2s ease",
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = "#3b82f6";
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = "rgba(255, 255, 255, 0.2)";
+              }}
+            >
+              <option value="">Default Microphone</option>
+              {audioInputs.map((device) => (
+                <option key={device.deviceId} value={device.deviceId}>
+                  {device.label || `Microphone (${device.deviceId.slice(-4)})`}
+                </option>
+              ))}
+            </select>
           </div>
-          <div>connectionState: {pcStatus.connectionState}</div>
-          <div>iceConnectionState: {pcStatus.iceConnectionState}</div>
-          <div>signalingState: {pcStatus.signalingState}</div>
-          <div>localDescription: {pcStatus.localDescription || "none"}</div>
-          <div>remoteDescription: {pcStatus.remoteDescription || "none"}</div>
-          <div>ICE Candidates:</div>
-          <ul>
-            {pcStatus.iceCandidates.map((c, i) => (
-              <li key={i} style={{ wordBreak: "break-all" }}>
-                {c}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div
-          style={{
-            marginTop: "1em",
-            background: "#333",
-            padding: "1em",
-            borderRadius: "6px",
-          }}
-        >
-          <div>
-            <strong>WebSocket Debug Log</strong>
-          </div>
-          <ul>
-            {wsLogs.map((log, i) => (
-              <li key={i}>
-                <span
-                  style={{
-                    color:
-                      log.level === "error"
-                        ? "#f55"
-                        : log.level === "warning"
-                        ? "#ff5"
-                        : "#0ff",
-                  }}
-                >
-                  [{log.level || "info"}]
-                </span>{" "}
-                <span style={{ color: "#888", fontSize: "0.85em" }}>
-                  {log.timestamp
-                    ? new Date(log.timestamp).toLocaleTimeString()
-                    : ""}
-                </span>{" "}
-                {log.message}
-              </li>
-            ))}
-          </ul>
-          <div style={{ marginTop: "0.5em", color: "#0ff" }}>
-            <span title="WebSocket round-trip time (RTT): the time it takes for a ping message to go to the server and back. Lower is better.">
-              WebSocket RTT:
-            </span>{" "}
-            {wsLatency !== null && wsLatency !== undefined
-              ? `${wsLatency} ms`
-              : "N/A"}
-          </div>
-        </div>
-        <div
-          style={{
-            marginTop: "1em",
-            background: "#222",
-            padding: "1em",
-            borderRadius: "6px",
-          }}
-        >
-          <div>
-            <strong>Connection Quality</strong>
-          </div>
-          <div>
-            <span title="The total number of bytes sent to the remote peer. Higher is better for throughput.">
-              Bitrate:
-            </span>{" "}
-            {connectionStats.bitrate !== undefined
-              ? connectionStats.bitrate >= 1024
-                ? `${(connectionStats.bitrate / 1024).toFixed(2)} kB sent`
-                : `${connectionStats.bitrate} bytes sent`
-              : "N/A"}
-          </div>
-          <div>
-            <span title="Round-trip time: the time it takes for a packet to go to the remote peer and back. Lower is better (measured in seconds).">
-              RTT:
-            </span>{" "}
-            {connectionStats.rtt !== undefined
-              ? `${(connectionStats.rtt * 1000).toFixed(1)} ms`
-              : "N/A"}
-          </div>
-          <div>
-            <span title="The number of audio packets lost during transmission. Lower is better.">
-              Packets Lost:
-            </span>{" "}
-            {connectionStats.packetsLost ?? "N/A"}
-          </div>
-          <div>
-            <span title="Jitter: the variation in packet arrival time. Lower is better for smooth audio (measured in seconds).">
-              Jitter:
-            </span>{" "}
-            {connectionStats.jitter !== undefined
-              ? `${(connectionStats.jitter * 1000).toFixed(1)} ms`
-              : "N/A"}
+
+          {/* Speaker selection */}
+          <div style={{ marginBottom: "16px" }}>
+            <label
+              htmlFor="speaker-select"
+              style={{
+                display: "block",
+                marginBottom: "6px",
+                color: "#9ca3af",
+                fontSize: "12px",
+                fontWeight: "500",
+              }}
+            >
+              Speaker:
+            </label>
+            <select
+              id="speaker-select"
+              value={selectedSpeakerId}
+              onChange={(e) => setSelectedSpeakerId(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                background: "rgba(0, 0, 0, 0.5)",
+                color: "#fff",
+                border: "1px solid rgba(255, 255, 255, 0.2)",
+                borderRadius: "6px",
+                fontSize: "14px",
+                outline: "none",
+                transition: "border-color 0.2s ease",
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = "#3b82f6";
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = "rgba(255, 255, 255, 0.2)";
+              }}
+            >
+              <option value="">Default Speaker</option>
+              {audioOutputs.map((device) => (
+                <option key={device.deviceId} value={device.deviceId}>
+                  {device.label || `Speaker (${device.deviceId.slice(-4)})`}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
+
+        <audio ref={audioRef} autoPlay style={{ display: "none" }} />
       </div>
+
+      {/* Logs Modal */}
+      {logsModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.8)",
+            backdropFilter: "blur(4px)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+        >
+          <button
+            onClick={() => setLogsModalOpen(false)}
+            style={{
+              position: "absolute",
+              top: 20,
+              right: 30,
+              zIndex: 10,
+              background: "none",
+              border: "none",
+              color: "#9ca3af",
+              fontSize: "24px",
+              cursor: "pointer",
+              padding: "4px",
+              borderRadius: "4px",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = "#fff";
+              e.currentTarget.style.backgroundColor =
+                "rgba(255, 255, 255, 0.1)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = "#9ca3af";
+              e.currentTarget.style.backgroundColor = "transparent";
+            }}
+          >
+            ✕
+          </button>
+          <LogsViewer
+            logs={logs}
+            wsLogs={wsLogs}
+            maxHeight="400px"
+            modal={true}
+          />
+        </div>
+      )}
     </div>
   );
 }
