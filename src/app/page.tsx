@@ -1,14 +1,87 @@
 "use client";
-import { useVoiceChat } from "./useVoiceChat";
+import { useVoiceChat } from "./hooks/useVoiceChat";
+import { useDeviceEnumeration } from "./hooks/useDeviceEnumeration";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
+import { Horde } from "./data.types";
+
+const django_domain = "192.168.1.101:8000";
 
 export default function Home() {
-  // Use the custom hook for all logic/state
+  const hordes = useQuery({
+    queryKey: ["hordes"],
+    queryFn: async () => await axios<Horde[]>(`https://${django_domain}/api/hordes/`),
+  });
+
+  useEffect(() => {
+    console.log("hordes", hordes);
+    console.log("hordes", hordes.data?.data);
+  }, [hordes]);
+
   const { audioRef, logs, wsLogs, role, pcStatus, connectionStats, wsLatency } =
     useVoiceChat("wss://192.168.1.101:8000/ws/voice_chat/1/");
+
+  // Device enumeration and selection
+  const devices = useDeviceEnumeration();
+  const audioInputs = useMemo(
+    () => devices.filter((d) => d.kind === "audioinput"),
+    [devices]
+  );
+  const audioOutputs = useMemo(
+    () => devices.filter((d) => d.kind === "audiooutput"),
+    [devices]
+  );
+
+  const [selectedMicId, setSelectedMicId] = useState<string>("");
+  const [selectedSpeakerId, setSelectedSpeakerId] = useState<string>("");
 
   return (
     <div>
       <p>welcome to golden horde</p>
+      {/* Microphone selection dropdown */}
+      <div style={{ margin: "1em 0" }}>
+        <label htmlFor="mic-select" style={{ marginRight: 8 }}>
+          Microphone:
+        </label>
+        <select
+          id="mic-select"
+          value={selectedMicId}
+          onChange={(e) => setSelectedMicId(e.target.value)}
+          style={{
+            background: "black",
+          }}
+        >
+          <option value="">Default</option>
+          {audioInputs.map((device) => (
+            <option key={device.deviceId} value={device.deviceId}>
+              {device.label || `Microphone (${device.deviceId.slice(-4)})`}
+            </option>
+          ))}
+        </select>
+      </div>
+      {/* Speaker selection dropdown */}
+      <div style={{ margin: "1em 0" }}>
+        <label htmlFor="speaker-select" style={{ marginRight: 8 }}>
+          Speaker:
+        </label>
+        <select
+          id="speaker-select"
+          value={selectedSpeakerId}
+          onChange={(e) => setSelectedSpeakerId(e.target.value)}
+          style={{
+            background: "black",
+          }}
+        >
+          <option value="">Default</option>
+          {audioOutputs.map((device) => (
+            <option key={device.deviceId} value={device.deviceId}>
+              {device.label || `Speaker (${device.deviceId.slice(-4)})`}
+            </option>
+          ))}
+        </select>
+      </div>
+      
       <audio
         ref={audioRef}
         autoPlay
@@ -31,11 +104,22 @@ export default function Home() {
         <ul>
           {logs.map((log, i) => (
             <li key={i}>
-              <span style={{ color: log.level === "error" ? "#f55" : log.level === "warning" ? "#ff5" : "#0f0" }}>
+              <span
+                style={{
+                  color:
+                    log.level === "error"
+                      ? "#f55"
+                      : log.level === "warning"
+                      ? "#ff5"
+                      : "#0f0",
+                }}
+              >
                 [{log.level || "info"}]
               </span>{" "}
               <span style={{ color: "#888", fontSize: "0.85em" }}>
-                {log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : ""}
+                {log.timestamp
+                  ? new Date(log.timestamp).toLocaleTimeString()
+                  : ""}
               </span>{" "}
               {log.message}
             </li>
@@ -80,11 +164,22 @@ export default function Home() {
           <ul>
             {wsLogs.map((log, i) => (
               <li key={i}>
-                <span style={{ color: log.level === "error" ? "#f55" : log.level === "warning" ? "#ff5" : "#0ff" }}>
+                <span
+                  style={{
+                    color:
+                      log.level === "error"
+                        ? "#f55"
+                        : log.level === "warning"
+                        ? "#ff5"
+                        : "#0ff",
+                  }}
+                >
                   [{log.level || "info"}]
                 </span>{" "}
                 <span style={{ color: "#888", fontSize: "0.85em" }}>
-                  {log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : ""}
+                  {log.timestamp
+                    ? new Date(log.timestamp).toLocaleTimeString()
+                    : ""}
                 </span>{" "}
                 {log.message}
               </li>

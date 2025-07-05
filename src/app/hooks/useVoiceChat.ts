@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useWebRTC } from "./useWebRTC";
 import { useSignaling } from "./useSignaling";
-import type { PeerRole, SignalingMessage } from "./types";
+import type { PeerRole, SignalingMessage } from "../types";
 import { useConnectionStats } from "./useConnectionStats";
 import { useLogs } from "./useLogs";
 import { useMediaStream } from "./useMediaStream";

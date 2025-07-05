@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback } from "react";
-import type { PeerConnectionStatus } from "./types";
+import type { PeerConnectionStatus } from "../types";
 
 export function useWebRTC(onIceCandidate?: (candidate: RTCIceCandidate) => void) {
   const pcRef = useRef<RTCPeerConnection | null>(null);

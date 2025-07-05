@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { SignalingMessage } from "./types";
+import type { SignalingMessage } from "../types";
 import type { LogEntry, LogLevel } from "./useLogs";
 
 export function useSignaling(wsUrl: string) {
