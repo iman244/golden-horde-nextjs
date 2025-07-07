@@ -1,14 +1,14 @@
 "use client";
 import { useVoiceChat } from "./hooks/useVoiceChat";
 import { useDeviceEnumeration } from "./hooks/useDeviceEnumeration";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { Horde } from "./data.types";
 import { LogsViewer } from "./components/LogsViewer";
 import { PeerConnectionStatus } from "./components/PeerConnectionStatus";
-
-const django_domain = "192.168.1.101:8000";
+import { useSignaling } from "./hooks/useSignaling";
+import type { TentEventMessage } from "./types";
 
 export default function Home() {
   const [logsModalOpen, setLogsModalOpen] = useState(false);
@@ -16,13 +16,14 @@ export default function Home() {
   const hordes_q = useQuery({
     queryKey: ["hordes"],
     queryFn: async () =>
-      await axios<Horde[]>(`https://${django_domain}/api/hordes/`),
+      await axios<Horde[]>(
+        `https://${process.env.NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN}/api/hordes/`
+      ),
     refetchInterval: false,
     refetchOnWindowFocus: false,
   });
 
   const {
-    audioRef,
     logs,
     wsLogs,
     wsLatency,
@@ -34,18 +35,68 @@ export default function Home() {
     username,
   } = useVoiceChat();
 
-  // Compute peer status from peer connections
-  const peerStatus = useMemo(() => {
-    const totalPeers = peerConnections.size;
-    const connectedPeers = Array.from(peerConnections.values()).filter(
-      (pc) => pc.connectionState === "connected"
-    ).length;
+  // Tent users by tentId (from tent-events WS)
+  const [tentUsersByTent, setTentUsersByTent] = useState<{
+    [tentId: string]: string[];
+  }>({});
 
-    return {
-      totalPeers,
-      connectedPeers,
+  useEffect(() => {
+    console.log("tentUsersByTent", tentUsersByTent);
+  }, [tentUsersByTent]);
+
+  // Tent-events WebSocket connection
+  const { onSignal: onTentEventSignal, wsLatency: onTentEventWsLatency, isOpen: onTentEventIsOpen } =
+    useSignaling<TentEventMessage>({
+      url: `wss://${process.env.NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN}/ws/tent-events/`,
+    });
+
+  function hasTentId(
+    msg: TentEventMessage
+  ): msg is Extract<TentEventMessage, { tent_id: string }> {
+    return "tent_id" in msg && typeof msg.tent_id === "string";
+  }
+
+  useEffect(() => {
+    const handleTentEvent = (msg: TentEventMessage) => {
+      if (msg.type == "pong") {
+        return;
+      }
+      if (msg.type == "current_tent_users") {
+        setTentUsersByTent(msg.tents);
+      }
+      if (hasTentId(msg)) {
+        setTentUsersByTent((prev) => {
+          const users = prev[msg.tent_id] || [];
+          if (msg.type === "user_joined") {
+            console.log("user_joined", {
+              ...prev,
+              [msg.tent_id]: [...users, msg.username],
+            });
+            if (!users.includes(msg.username)) {
+              return { ...prev, [msg.tent_id]: [...users, msg.username] };
+            }
+          } else if (msg.type === "user_left") {
+            if (users.includes(msg.username)) {
+              console.log("user_left", {
+                ...prev,
+                [msg.tent_id]: [...users, msg.username],
+              });
+              return {
+                ...prev,
+                [msg.tent_id]: users.filter((u) => u !== msg.username),
+              };
+            }
+          }
+          return prev;
+        });
+      }
     };
-  }, [peerConnections]);
+    const unsubscribe = onTentEventSignal(handleTentEvent);
+    return () => {
+      unsubscribe();
+      setTentUsersByTent({});
+    };
+  }, [onTentEventSignal]);
 
   // Device enumeration and selection
   const devices = useDeviceEnumeration();
@@ -137,6 +188,26 @@ export default function Home() {
             >
               Golden Horde Voice Chat
             </h1>
+
+            <div
+              style={{
+                background: "rgba(59,130,246,0.15)",
+                color: "#0ff",
+                padding: "8px 16px",
+                borderRadius: "6px",
+                marginBottom: "12px",
+                fontFamily: "monospace",
+                fontSize: "13px",
+                display: "inline-block",
+              }}
+            >
+              General WebSocket RTT:{" "}
+              {onTentEventWsLatency !== null &&
+              onTentEventWsLatency !== undefined
+                ? `${onTentEventWsLatency} ms`
+                : onTentEventIsOpen ? "getting ping..." : "N/A"}
+            </div>
+
             <p
               style={{
                 margin: "0",
@@ -297,80 +368,106 @@ export default function Home() {
 
                     {/* WebSocket RTT */}
                     {isConnected && currentTentId === t.id && (
-                      <div style={{
-                        background: 'rgba(59,130,246,0.15)',
-                        color: '#0ff',
-                        padding: '8px 16px',
-                        borderRadius: '6px',
-                        marginBottom: '12px',
-                        fontFamily: 'monospace',
-                        fontSize: '13px',
-                        display: 'inline-block'
-                      }}>
-                        WebSocket RTT: {wsLatency !== null && wsLatency !== undefined ? `${wsLatency} ms` : "N/A"}
+                      <div
+                        style={{
+                          background: "rgba(59,130,246,0.15)",
+                          color: "#0ff",
+                          padding: "8px 16px",
+                          borderRadius: "6px",
+                          marginBottom: "12px",
+                          fontFamily: "monospace",
+                          fontSize: "13px",
+                          display: "inline-block",
+                        }}
+                      >
+                        WebSocket RTT:{" "}
+                        {wsLatency !== null && wsLatency !== undefined
+                          ? `${wsLatency} ms`
+                          : "N/A"}
                       </div>
                     )}
 
-                    {/* Connection Status for Connected Tent */}
-                    {currentTentId === t.id && (
-                      <>
-                        {/* Peer Summary */}
-                        <div
-                          style={{
-                            background: "rgba(0, 0, 0, 0.2)",
-                            padding: "8px",
-                            borderRadius: "4px",
-                            marginTop: "12px",
-                            marginBottom: "8px",
-                          }}
-                        >
-                          <div
-                            style={{ marginBottom: "4px", color: "#9ca3af" }}
-                          >
-                            <strong>Peers in Tent:</strong>
-                          </div>
-                          <div
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns: "1fr 1fr",
-                              gap: "6px",
-                              fontSize: "10px",
-                            }}
-                          >
-                            <div>
-                              <span style={{ color: "#9ca3af" }}>Total:</span>
-                              <div style={{ color: "#fff" }}>
-                                {peerStatus.totalPeers}
-                              </div>
-                            </div>
-                            <div>
-                              <span style={{ color: "#9ca3af" }}>
-                                Connected:
-                              </span>
-                              <div
-                                style={{
-                                  color:
-                                    peerStatus.connectedPeers > 0
-                                      ? "#44ff44"
-                                      : "#ff4444",
-                                }}
-                              >
-                                {peerStatus.connectedPeers}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Peer Connection Status Component */}
-                        {[...peerConnections.entries()].map(([user, pc]) => (
+                    {/* Users in Tent (always show, grouped by tent) */}
+                    <div
+                      style={{
+                        marginTop:
+                          (tentUsersByTent[t.id] || []).length === 0
+                            ? "0"
+                            : "12px",
+                      }}
+                    >
+                      {(tentUsersByTent[t.id] || []).map((user) =>
+                        peerConnections.has(user) ? (
                           <PeerConnectionStatus
                             key={user}
                             user={user}
-                            peerConnection={pc}
+                            peerConnection={
+                              peerConnections.get(user)?.peerConnection || null
+                            }
                           />
-                        ))}
-                      </>
-                    )}
+                        ) : user == username ? (
+                          <div
+                            key={user}
+                            style={{
+                              background: "rgba(31,41,55,0.85)",
+                              borderRadius: 10,
+                              padding: "10px 14px",
+                              fontFamily: "monospace",
+                              fontSize: 12,
+                              color: "#fff",
+                              marginBottom: 8,
+                              boxShadow: "0 2px 8px 0 rgba(0,0,0,0.10)",
+                              display: "flex",
+                              flexDirection: "row",
+                              gap: 6,
+                            }}
+                          >
+                            <span style={{ fontWeight: 700, fontSize: 13 }}>
+                              {user}
+                            </span>
+                            <span style={{ color: "yellow", fontWeight: 500 }}>
+                              (yourself)
+                            </span>
+                          </div>
+                        ) : (
+                          <div
+                            key={user}
+                            style={{
+                              background: "rgba(31,41,55,0.85)",
+                              borderRadius: 10,
+                              padding: "10px 14px",
+                              fontFamily: "monospace",
+                              fontSize: 12,
+                              color: "#fff",
+                              marginBottom: 8,
+                              boxShadow: "0 2px 8px 0 rgba(0,0,0,0.10)",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                            }}
+                          >
+                            <span style={{ fontWeight: 700, fontSize: 13 }}>
+                              {user}
+                            </span>
+                            {currentTentId === t.id && (
+                              <span
+                                style={{
+                                  background: "#fbbf24",
+                                  color: "#111",
+                                  borderRadius: 6,
+                                  padding: "2px 7px",
+                                  fontWeight: 600,
+                                  fontSize: 11,
+                                  marginLeft: 4,
+                                }}
+                              >
+                                Not connected
+                              </span>
+                            )}
+                          </div>
+                        )
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -548,7 +645,21 @@ export default function Home() {
           </div>
         </div>
 
-        <audio ref={audioRef} autoPlay style={{ display: "none" }} />
+        {/* Render an <audio> element for each remote stream */}
+        {Array.from(peerConnections.entries()).map(([username, { stream }]) =>
+          stream ? (
+            <audio
+              key={username}
+              autoPlay
+              hidden
+              ref={(el) => {
+                if (el && el.srcObject !== stream) {
+                  el.srcObject = stream;
+                }
+              }}
+            />
+          ) : null
+        )}
       </div>
 
       {/* Logs Modal */}

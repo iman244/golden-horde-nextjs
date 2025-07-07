@@ -1,88 +1,77 @@
-import { useRef, useCallback, useState } from "react";
+import { useCallback, useState, useRef } from "react";
 
 export function useWebRTC(onIceCandidate?: (candidate: RTCIceCandidate, _username: string, target_user: string) => void) {
-//   const pcRef = useRef<RTCPeerConnection | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
-  const [peerConnections, setPeerConnections] = useState<Map<string, RTCPeerConnection>>(new Map());
+  // Map of username -> { peerConnection, stream }
+  const peerDataRef = useRef<Map<string, { peerConnection: RTCPeerConnection, stream: MediaStream | null }>>(new Map());
+  const [peerConnections, setPeerConnections] = useState<Map<string, { peerConnection: RTCPeerConnection, stream: MediaStream | null }>>(new Map());
 
   // Create and return a new RTCPeerConnection for a specific user
   const createPeerConnection = useCallback(({username, target_user}:{username: string; target_user: string}) => {
-    const pc = new RTCPeerConnection();
-    
+    const peerConnection = new RTCPeerConnection();
     // Track ICE candidates for this peer
     const iceCandidates: string[] = [];
-    
-    pc.onicecandidate = (event) => {
+    peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
         iceCandidates.push(event.candidate.candidate);
         onIceCandidate?.(event.candidate, username, target_user);
       }
     };
-
     // Handle remote audio
-    pc.ontrack = (event) => {
-      if (audioRef.current) {
-        audioRef.current.srcObject = event.streams[0];
-      }
+    peerConnection.ontrack = (event) => {
+      peerDataRef.current.set(target_user, {
+        peerConnection,
+        stream: event.streams[0],
+      });
+      setPeerConnections(new Map(peerDataRef.current));
     };
-
     // Remove peer on disconnect/failed/closed
-    pc.onconnectionstatechange = () => {
+    peerConnection.onconnectionstatechange = () => {
       if (
-        pc.connectionState === "disconnected" ||
-        pc.connectionState === "failed" ||
-        pc.connectionState === "closed"
+        peerConnection.connectionState === "disconnected" ||
+        peerConnection.connectionState === "failed" ||
+        peerConnection.connectionState === "closed"
       ) {
-        peerConnectionsRef.current.delete(target_user);
-        setPeerConnections(new Map(peerConnectionsRef.current));
+        peerDataRef.current.delete(target_user);
+        setPeerConnections(new Map(peerDataRef.current));
       }
     };
-
-    // Store peer connection
-    peerConnectionsRef.current.set(target_user, pc);
-    setPeerConnections(new Map(peerConnectionsRef.current))
-
-    return pc;
+    // Store peer connection (no stream yet)
+    peerDataRef.current.set(target_user, { peerConnection, stream: null });
+    setPeerConnections(new Map(peerDataRef.current));
+    return peerConnection;
   }, [onIceCandidate]);
 
-  // Add local tracks to the connection
+  // Add local tracks to all peer connections
   const addTracks = useCallback((stream: MediaStream) => {
-    if (peerConnectionsRef.current.size > 0) {
+    if (peerDataRef.current.size > 0) {
       stream.getTracks().forEach((track) => {
-        peerConnectionsRef.current.forEach((pc)=>{
-            console.log("useWebRTC addTracks pc", pc)
-            pc.addTrack(track, stream)
-        })
+        peerDataRef.current.forEach(({ peerConnection }) => {
+          peerConnection.addTrack(track, stream);
+        });
       });
     }
-    // const pc = pcRef.current;
-    // if (pc) {
-    //   stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-    // }
   }, []);
 
   // Add tracks to a specific peer connection
   const addTracksToPeer = useCallback((stream: MediaStream, userId: string) => {
-    const pc = peerConnectionsRef.current.get(userId);
-    if (pc) {
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+    const entry = peerDataRef.current.get(userId);
+    if (entry) {
+      stream.getTracks().forEach((track) => entry.peerConnection.addTrack(track, stream));
     }
   }, []);
 
   // Close all peer connections
   const closeAllPeerConnections = useCallback(() => {
-    peerConnectionsRef.current.forEach((pc) => {
-      pc.close();
+    peerDataRef.current.forEach(({ peerConnection }) => {
+      peerConnection.close();
     });
-    peerConnectionsRef.current = new Map();
-    setPeerConnections(new Map())
+    peerDataRef.current = new Map();
+    setPeerConnections(new Map());
   }, []);
 
   return {
-    audioRef,
     peerConnections,
-    peerConnectionsRef,
+    peerDataRef,
     createPeerConnection,
     addTracks,
     addTracksToPeer,

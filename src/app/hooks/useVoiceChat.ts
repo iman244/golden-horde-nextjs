@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useWebRTC } from "./useWebRTC";
 import { useSignaling } from "./useSignaling";
-import type { SignalingMessage } from "../types";
+import type { VoiceChatSignalingMessage } from "../types";
 import { useLogs } from "./useLogs";
 import { useMediaStream } from "./useMediaStream";
 
@@ -19,9 +19,13 @@ export function useVoiceChat() {
     stopMedia,
   } = useMediaStream();
 
+  const getVoiceChatUrl = useCallback((id: string | number) => `wss://${process.env.NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN}/ws/voice_chat/${id}/`,[])
+
   // Initialize signaling when tentId changes
-  const { wsLogs, sendSignal, onSignal, wsLatency } =
-    useSignaling(currentTentId);
+  const { wsLogs, sendSignal, onSignal, wsLatency } = useSignaling<VoiceChatSignalingMessage>({
+    channelId: currentTentId,
+    getUrl: getVoiceChatUrl,
+  });
 
   // ICE candidate handler to be passed to useWebRTC
   const handleIceCandidate = useCallback(
@@ -49,9 +53,8 @@ export function useVoiceChat() {
   );
 
   const {
-    audioRef,
     peerConnections,
-    peerConnectionsRef,
+    peerDataRef,
     createPeerConnection,
     addTracks,
     addTracksToPeer,
@@ -94,7 +97,7 @@ export function useVoiceChat() {
 
             // Extracted handlers for offer, answer, and ICE candidate
             function handleOffer(
-              msg: Extract<SignalingMessage, { type: "offer" }>
+              msg: Extract<VoiceChatSignalingMessage, { type: "offer" }>
             ) {
               try {
                 const target_user = msg.username;
@@ -102,19 +105,19 @@ export function useVoiceChat() {
                   `Received offer from ${target_user}, setting remote description.`
                 );
 
-                let peerConn = peerConnectionsRef.current.get(target_user);
-                if (!peerConn) {
-                  // Create new peer connection for this user
-                  peerConn = createPeerConnection({
+                let peerConnEntry = peerDataRef.current.get(target_user);
+                if (!peerConnEntry) {
+                  createPeerConnection({
                     username: msg.target_user,
                     target_user,
                   });
                   if (localStream) {
                     addTracksToPeer(localStream, target_user);
                   }
+                  peerConnEntry = peerDataRef.current.get(target_user);
                 }
 
-                if (!peerConn) {
+                if (!peerConnEntry) {
                   addLog(
                     `Error: Failed to create peer connection for ${target_user}`
                   );
@@ -123,7 +126,7 @@ export function useVoiceChat() {
 
                 addLog("Role set: answerer");
 
-                peerConn
+                peerConnEntry.peerConnection
                   .setRemoteDescription(
                     new RTCSessionDescription({
                       type: "offer",
@@ -132,13 +135,13 @@ export function useVoiceChat() {
                   )
                   .then(() => {
                     addLog("Remote description set. Creating answer...");
-                    return peerConn!.createAnswer();
+                    return peerConnEntry!.peerConnection.createAnswer();
                   })
                   .then((answer: RTCSessionDescriptionInit) => {
                     addLog(
                       "Answer created. Setting local description and sending to server."
                     );
-                    return peerConn!.setLocalDescription(answer).then(() => {
+                    return peerConnEntry!.peerConnection.setLocalDescription(answer).then(() => {
                       if (typeof answer.sdp === "string") {
                         sendSignal({
                           type: "answer",
@@ -165,15 +168,15 @@ export function useVoiceChat() {
             }
 
             function handleAnswer(
-              msg: Extract<SignalingMessage, { type: "answer" }>
+              msg: Extract<VoiceChatSignalingMessage, { type: "answer" }>
             ) {
               const target_user = msg.username || "unknown";
               addLog(
                 `Received answer from ${target_user}, setting remote description.`
               );
-              const peerConn = peerConnectionsRef.current.get(target_user);
-              if (peerConn) {
-                peerConn
+              const peerConnEntry = peerDataRef.current.get(target_user);
+              if (peerConnEntry) {
+                peerConnEntry.peerConnection
                   .setRemoteDescription(
                     new RTCSessionDescription({
                       type: "answer",
@@ -192,7 +195,7 @@ export function useVoiceChat() {
             }
 
             function handleIceCandidateMsg(
-              msg: Extract<SignalingMessage, { type: "ice-candidate" }>
+              msg: Extract<VoiceChatSignalingMessage, { type: "ice-candidate" }>
             ) {
               const target_user = msg.username || "unknown";
               if (msg.candidate != null && msg.candidate !== "") {
@@ -200,9 +203,9 @@ export function useVoiceChat() {
                   `Received ICE candidate from ${target_user}. Adding to RTCPeerConnection.`
                 );
 
-                const peerConn = peerConnectionsRef.current.get(target_user);
-                if (peerConn) {
-                  peerConn
+                const peerConnEntry = peerDataRef.current.get(target_user);
+                if (peerConnEntry) {
+                  peerConnEntry.peerConnection
                     .addIceCandidate({
                       candidate: msg.candidate as string,
                       ...(typeof msg.sdpMid === "string"
@@ -223,7 +226,7 @@ export function useVoiceChat() {
             }
 
             // Handle incoming signaling messages
-            const unsubscribe = onSignal((msg: SignalingMessage) => {
+            const unsubscribe = onSignal((msg: VoiceChatSignalingMessage) => {
               switch (msg.type) {
                 case "connect_info":
                   setUsername(msg.username);
@@ -238,27 +241,30 @@ export function useVoiceChat() {
                   if (msg.username) {
                     msg.other_users.forEach((target_user) => {
                       if (target_user !== msg.username) {
-                        let pc = peerConnectionsRef.current.get(target_user);
-                        if (!pc) {
-                          pc = createPeerConnection({
+                        let peerConnEntry = peerDataRef.current.get(target_user);
+                        if (!peerConnEntry) {
+                          createPeerConnection({
                             username: msg.username,
                             target_user,
                           });
                           if (localStream) {
                             addTracksToPeer(localStream, target_user);
                           }
+                          peerConnEntry = peerDataRef.current.get(target_user);
                         }
-                        pc.createOffer().then((offer) => {
-                          pc.setLocalDescription(offer).then(() => {
-                            sendSignal({
-                              type: "offer",
-                              sdp: offer.sdp!,
-                              username: msg.username,
-                              target_user,
+                        if (peerConnEntry) {
+                          peerConnEntry.peerConnection.createOffer().then((offer) => {
+                            peerConnEntry!.peerConnection.setLocalDescription(offer).then(() => {
+                              sendSignal({
+                                type: "offer",
+                                sdp: offer.sdp!,
+                                username: msg.username,
+                                target_user,
+                              });
+                              addLog(`Offer sent to ${target_user}`);
                             });
-                            addLog(`Offer sent to ${target_user}`);
                           });
-                        });
+                        }
                       }
                     });
                   }
@@ -390,7 +396,6 @@ export function useVoiceChat() {
   ]);
 
   return {
-    audioRef,
     logs,
     wsLogs,
     wsLatency,
@@ -399,7 +404,7 @@ export function useVoiceChat() {
     currentTentId,
     isConnected,
     peerConnections,
-    peerConnectionsRef,
+    peerDataRef,
     joinTent,
     leaveTent,
     username,

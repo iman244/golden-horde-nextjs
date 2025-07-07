@@ -16,20 +16,20 @@ interface ConnectionStats {
 export function PeerConnectionStatus({ user, peerConnection }: PeerConnectionStatusProps) {
   const [connectionStats, setConnectionStats] = useState<ConnectionStats>({});
 
-  useEffect(()=>{
-    const getConfiguration = peerConnection?.getConfiguration()
-    const getReceivers = peerConnection?.getReceivers()
-    const getSenders = peerConnection?.getSenders()
-    peerConnection?.getStats().then(v => console.log("getStats", v))
-    const getTransceivers = peerConnection?.getTransceivers()
+//   useEffect(()=>{
+//     const getConfiguration = peerConnection?.getConfiguration()
+//     const getReceivers = peerConnection?.getReceivers()
+//     const getSenders = peerConnection?.getSenders()
+//     peerConnection?.getStats().then(v => console.log("getStats", v))
+//     const getTransceivers = peerConnection?.getTransceivers()
 
-    console.log("PeerConnectionStatus peerConnection", peerConnection)
-    console.log("getConfiguration", getConfiguration)
-    console.log("getReceivers", getReceivers)
-    console.log("getSenders", getSenders)
-    console.log("getTransceivers", getTransceivers)
+//     console.log("PeerConnectionStatus peerConnection", peerConnection)
+//     console.log("getConfiguration", getConfiguration)
+//     console.log("getReceivers", getReceivers)
+//     console.log("getSenders", getSenders)
+//     console.log("getTransceivers", getTransceivers)
 
-  },[peerConnection])
+//   },[peerConnection])
 
   // Update connection stats periodically
   useEffect(() => {

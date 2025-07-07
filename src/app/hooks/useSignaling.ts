@@ -1,21 +1,29 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { SignalingMessage } from "../types";
 import type { LogEntry, LogLevel } from "./useLogs";
 
-const django_domain = "192.168.1.101:8000";
+// Generic options for useSignaling
+interface UseSignalingOptions {
+  url?: string;
+  channelId?: string | number | null;
+  getUrl?: (channelId: string | number) => string;
+}
 
-export function useSignaling(tentId: number | null) {
+type MessageWithType = { type: string };
+type MessageWithTypeAndTs = { type: string; ts: number };
+export function useSignaling<T extends MessageWithType>(options: UseSignalingOptions) {
+  const { url, channelId, getUrl } = options;
   const wsRef = useRef<WebSocket | null>(null);
   const [wsLogs, setWsLogs] = useState<LogEntry[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [wsLatency, setWsLatency] = useState<number | null>(null);
-  const signalCallbacks = useRef<((msg: SignalingMessage) => void)[]>([]);
+  const signalCallbacks = useRef<((msg: T) => void)[]>([]);
 
-  const addWsLog = (message: string, level: LogLevel = "info") =>
-    setWsLogs((logs) => [...logs, { message, level, timestamp: Date.now() }]);
+  const addWsLog = useCallback((message: string, level: LogLevel = "info") =>
+    setWsLogs((logs) => [...logs, { message, level, timestamp: Date.now() }]),
+  []);
 
   // Send a signaling message
-  const sendSignal = useCallback((msg: SignalingMessage) => {
+  const sendSignal = useCallback((msg: T) => {
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(msg));
@@ -26,10 +34,10 @@ export function useSignaling(tentId: number | null) {
         "warning"
       );
     }
-  }, []);
+  }, [addWsLog]);
 
   // Register a callback for incoming signaling messages
-  const onSignal = useCallback((cb: (msg: SignalingMessage) => void) => {
+  const onSignal = useCallback((cb: (msg: T) => void) => {
     signalCallbacks.current.push(cb);
     return () => {
       signalCallbacks.current = signalCallbacks.current.filter(
@@ -37,6 +45,24 @@ export function useSignaling(tentId: number | null) {
       );
     };
   }, []);
+
+  function isMessageWithTypeAndTs(msg: unknown): msg is MessageWithTypeAndTs {
+    return (
+      typeof msg === "object" &&
+      msg !== null &&
+      "type" in msg &&
+      "ts" in msg &&
+      typeof (msg as MessageWithTypeAndTs).ts === "number"
+    );
+  }
+
+  function isMessageWithType(msg: unknown): msg is MessageWithType {
+    return (
+      typeof msg === "object" &&
+      msg !== null &&
+      "type" in msg
+    );
+  }
 
   useEffect(() => {
     // Close existing connection if any
@@ -47,20 +73,25 @@ export function useSignaling(tentId: number | null) {
       setIsOpen(false);
     }
 
-    // Don't connect if no tentId is provided
-    if (!tentId) {
-      addWsLog("[WS] No tentId provided, not connecting");
+    // Determine the WebSocket URL
+    let wsUrl: string | null = null;
+    if (url) {
+      wsUrl = url;
+    } else if (getUrl && channelId !== undefined && channelId !== null) {
+      wsUrl = getUrl(channelId);
+    }
+
+    if (!wsUrl) {
+      addWsLog("[WS] No valid WebSocket URL provided, not connecting");
       return;
     }
 
-    // Generate WebSocket URL from tentId
-    const wsUrl = `wss://${django_domain}/ws/voice_chat/${tentId}/`;
-    addWsLog(`[WS] Connecting to tent ${tentId}: ${wsUrl}`);
+    addWsLog(`[WS] Connecting: ${wsUrl}`);
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
-    let pingInterval: NodeJS.Timeout | null = null;
+    let pingInterval: ReturnType<typeof setInterval> | null = null;
     let lastPingTimestamp: number | null = null;
 
     ws.onopen = () => {
@@ -95,12 +126,11 @@ export function useSignaling(tentId: number | null) {
 
     ws.onmessage = (event) => {
       try {
-        const msg: SignalingMessage = JSON.parse(event.data);
-        if (msg.type === "pong" && msg.ts && lastPingTimestamp) {
+        const msg: T = JSON.parse(event.data);
+        if (isMessageWithTypeAndTs(msg) && msg.type === "pong" && lastPingTimestamp) {
           setWsLatency(Date.now() - msg.ts);
         }
-        if (msg.type !== "pong") {
-            console.log("msg", msg)
+        if (isMessageWithType(msg) && msg.type !== "pong") {
           addWsLog(`[WS] Received: ${event.data}`);
         }
         signalCallbacks.current.forEach((cb) => cb(msg));
@@ -122,10 +152,10 @@ export function useSignaling(tentId: number | null) {
         wsRef.current = null;
       }
       if (pingInterval) clearInterval(pingInterval);
-      // Clear all signal callbacks to prevent leaks
-      signalCallbacks.current = [];
+      // Do not clear all signal callbacks globally here; each component should unsubscribe its own callback.
     };
-  }, [tentId]);
+  }, [url, channelId, addWsLog, getUrl]);
+//   url, channelId, getUrl, addWsLog
 
   return { wsLogs, sendSignal, onSignal, isOpen, wsLatency };
 }
