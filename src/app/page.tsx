@@ -81,6 +81,13 @@ export default function Home() {
                 ...prev,
                 [msg.tent_id]: [...users, msg.username],
               });
+              // Only close the peer connection if the tentId matches the current tent
+              if (currentTentId !== null && msg.tent_id === String(currentTentId)) {
+                const entry = peerConnections.get(msg.username);
+                if (entry && entry.peerConnection) {
+                  entry.peerConnection.close();
+                }
+              }
               return {
                 ...prev,
                 [msg.tent_id]: users.filter((u) => u !== msg.username),
