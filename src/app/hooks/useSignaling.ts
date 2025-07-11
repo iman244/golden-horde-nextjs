@@ -17,6 +17,7 @@ export function useSignaling<T extends MessageWithType>(options: UseSignalingOpt
   const [isOpen, setIsOpen] = useState(false);
   const [wsLatency, setWsLatency] = useState<number | null>(null);
   const signalCallbacks = useRef<((msg: T) => void)[]>([]);
+  const authRejectedCallbacks = useRef<(() => void)[]>([]);
 
   const addWsLog = useCallback((message: string, level: LogLevel = "info") =>
     setWsLogs((logs) => [...logs, { message, level, timestamp: Date.now() }]),
@@ -43,6 +44,17 @@ export function useSignaling<T extends MessageWithType>(options: UseSignalingOpt
       signalCallbacks.current = signalCallbacks.current.filter(
         (fn) => fn !== cb
       );
+    };
+  }, []);
+
+  /**
+   * Register a callback for authentication/token rejection (code 4001 or reason 'auth_failed').
+   * Returns an unsubscribe function.
+   */
+  const onAuthRejected = useCallback((cb: () => void) => {
+    authRejectedCallbacks.current.push(cb);
+    return () => {
+      authRejectedCallbacks.current = authRejectedCallbacks.current.filter((fn) => fn !== cb);
     };
   }, []);
 
@@ -113,6 +125,10 @@ export function useSignaling<T extends MessageWithType>(options: UseSignalingOpt
         `[WS] Connection closed (code: ${event.code}, reason: ${event.reason})`,
         "warning"
       );
+      // Handle authentication/token rejection (code 4001 or reason 'auth_failed')
+      // See RFC 6455: https://datatracker.ietf.org/doc/html/rfc6455#section-7.4.2
+      console.log("event onclose", event)
+      authRejectedCallbacks.current.forEach((cb) => cb());
       if (pingInterval) clearInterval(pingInterval);
     };
 
@@ -157,5 +173,5 @@ export function useSignaling<T extends MessageWithType>(options: UseSignalingOpt
   }, [url, channelId, addWsLog, getUrl]);
 //   url, channelId, getUrl, addWsLog
 
-  return { wsLogs, sendSignal, onSignal, isOpen, wsLatency };
+  return { wsLogs, sendSignal, onSignal, isOpen, wsLatency, onAuthRejected };
 }

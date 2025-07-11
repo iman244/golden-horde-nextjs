@@ -13,6 +13,8 @@ import { useTentEvents } from "./hooks/useTentEvents";
 export default function Home() {
   const [token, setToken] = useState<string | null | undefined>(undefined); // undefined = loading, null = no token
   const router = useRouter();
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [redirectCountdown, setRedirectCountdown] = useState(5);
 
   // Always call hooks at the top
   const voiceChat = useVoiceChat(token ?? null);
@@ -26,12 +28,16 @@ export default function Home() {
     refetchInterval: false,
     refetchOnWindowFocus: false,
   });
-  const {
-    tentUsersByTent,
-    onTentEventWsLatency,
-    onTentEventIsOpen,
-  } = useTentEvents({token: token ?? null});
-  
+  const { tentUsersByTent, onTentEventWsLatency, onTentEventIsOpen } =
+    useTentEvents({
+      token: token ?? null,
+      onAuthRejected: () => {
+        localStorage.removeItem("token");
+        setAuthError("Session expired or invalid. Please sign in again.");
+        setRedirectCountdown(5);
+      },
+    });
+
   const devices = useDeviceEnumeration();
   const audioInputs = useMemo(
     () => devices.filter((d) => d.kind === "audioinput"),
@@ -54,13 +60,45 @@ export default function Home() {
     }
   }, [router]);
 
-  useEffect(()=>{
-    console.log("tentUsersByTent", tentUsersByTent)
-  },[tentUsersByTent])
+  useEffect(() => {
+    console.log("tentUsersByTent", tentUsersByTent);
+  }, [tentUsersByTent]);
+
+  useEffect(() => {
+    if (authError && redirectCountdown > 0) {
+      const timer = setTimeout(() => {
+        setRedirectCountdown((c) => c - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (authError && redirectCountdown === 0) {
+      router.replace("/auth/sign-in");
+    }
+  }, [authError, redirectCountdown, router]);
 
   // Only render the app if token is present (null = no token, undefined = loading)
   if (token === undefined) return null;
   if (token === null) return null;
+
+  if (authError) {
+    return (
+      <div className="auth-page-bg">
+        <div className="auth-card">
+          <h2 className="auth-heading">Authentication Error</h2>
+          <div className="auth-error" style={{ marginBottom: 24 }}>{authError}</div>
+          <button
+            className="auth-btn-primary"
+            onClick={() => router.replace("/auth/sign-in")}
+            style={{ marginBottom: 16 }}
+          >
+            Sign In
+          </button>
+          <div className="auth-muted text-center">
+            Redirecting in {redirectCountdown} second{redirectCountdown !== 1 ? "s" : ""}...
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Handle tent click - join or leave tent
   const handleTentClick = async (tentId: number) => {
@@ -109,7 +147,9 @@ export default function Home() {
             }}
           >
             Your username:{" "}
-            <span style={{ color: "#fff", fontWeight: 700 }}>{voiceChat.username}</span>
+            <span style={{ color: "#fff", fontWeight: 700 }}>
+              {voiceChat.username}
+            </span>
           </div>
         )}
         {/* Header */}
@@ -155,7 +195,9 @@ export default function Home() {
               {onTentEventWsLatency !== null &&
               onTentEventWsLatency !== undefined
                 ? `${onTentEventWsLatency} ms`
-                : onTentEventIsOpen ? "getting ping..." : "N/A"}
+                : onTentEventIsOpen
+                ? "getting ping..."
+                : "N/A"}
             </div>
 
             <p
@@ -250,7 +292,8 @@ export default function Home() {
                         alignItems: "center",
                         justifyContent: "space-between",
                         gap: "12px",
-                        marginBottom: voiceChat.currentTentId === t.id ? "12px" : "0",
+                        marginBottom:
+                          voiceChat.currentTentId === t.id ? "12px" : "0",
                       }}
                     >
                       <div
@@ -291,7 +334,9 @@ export default function Home() {
                         style={{
                           padding: "8px 16px",
                           backgroundColor:
-                            voiceChat.currentTentId === t.id ? "#dc2626" : "#059669",
+                            voiceChat.currentTentId === t.id
+                              ? "#dc2626"
+                              : "#059669",
                           color: "white",
                           border: "none",
                           borderRadius: "6px",
@@ -317,25 +362,27 @@ export default function Home() {
                     </div>
 
                     {/* WebSocket RTT */}
-                    {voiceChat.isConnected && voiceChat.currentTentId === t.id && (
-                      <div
-                        style={{
-                          background: "rgba(59,130,246,0.15)",
-                          color: "#0ff",
-                          padding: "8px 16px",
-                          borderRadius: "6px",
-                          marginBottom: "12px",
-                          fontFamily: "monospace",
-                          fontSize: "13px",
-                          display: "inline-block",
-                        }}
-                      >
-                        WebSocket RTT:{" "}
-                        {voiceChat.wsLatency !== null && voiceChat.wsLatency !== undefined
-                          ? `${voiceChat.wsLatency} ms`
-                          : "N/A"}
-                      </div>
-                    )}
+                    {voiceChat.isConnected &&
+                      voiceChat.currentTentId === t.id && (
+                        <div
+                          style={{
+                            background: "rgba(59,130,246,0.15)",
+                            color: "#0ff",
+                            padding: "8px 16px",
+                            borderRadius: "6px",
+                            marginBottom: "12px",
+                            fontFamily: "monospace",
+                            fontSize: "13px",
+                            display: "inline-block",
+                          }}
+                        >
+                          WebSocket RTT:{" "}
+                          {voiceChat.wsLatency !== null &&
+                          voiceChat.wsLatency !== undefined
+                            ? `${voiceChat.wsLatency} ms`
+                            : "N/A"}
+                        </div>
+                      )}
 
                     {/* Users in Tent (always show, grouped by tent) */}
                     <div
@@ -352,7 +399,8 @@ export default function Home() {
                             key={user}
                             user={user}
                             peerConnection={
-                              voiceChat.peerConnections.get(user)?.peerConnection || null
+                              voiceChat.peerConnections.get(user)
+                                ?.peerConnection || null
                             }
                           />
                         ) : user == voiceChat.username ? (
@@ -596,19 +644,20 @@ export default function Home() {
         </div>
 
         {/* Render an <audio> element for each remote stream */}
-        {Array.from(voiceChat.peerConnections.entries()).map(([username, { stream }]) =>
-          stream ? (
-            <audio
-              key={username}
-              autoPlay
-              hidden
-              ref={(el) => {
-                if (el && el.srcObject !== stream) {
-                  el.srcObject = stream;
-                }
-              }}
-            />
-          ) : null
+        {Array.from(voiceChat.peerConnections.entries()).map(
+          ([username, { stream }]) =>
+            stream ? (
+              <audio
+                key={username}
+                autoPlay
+                hidden
+                ref={(el) => {
+                  if (el && el.srcObject !== stream) {
+                    el.srcObject = stream;
+                  }
+                }}
+              />
+            ) : null
         )}
       </div>
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useSignaling } from "./useSignaling";
 import type { TentEventMessage } from "../types";
 
-export function useTentEvents({ token }: { token: string | null }) {
+export function useTentEvents({ token, onAuthRejected }: { token: string | null; onAuthRejected?: () => void }) {
   const [tentUsersByTent, setTentUsersByTent] = useState<{
     [tentId: string]: string[];
   }>({});
@@ -15,6 +15,7 @@ export function useTentEvents({ token }: { token: string | null }) {
     onSignal: onTentEventSignal,
     wsLatency: onTentEventWsLatency,
     isOpen: onTentEventIsOpen,
+    onAuthRejected: onTentEventAuthRejected,
   } = useSignaling<TentEventMessage>({
     url: wsUrl,
   });
@@ -58,6 +59,14 @@ export function useTentEvents({ token }: { token: string | null }) {
       setTentUsersByTent({});
     };
   }, [onTentEventSignal]);
+
+  useEffect(() => {
+    if (!onAuthRejected) return;
+    const unsubscribeAuth = onTentEventAuthRejected(() => {
+      onAuthRejected();
+    });
+    return unsubscribeAuth;
+  }, [onTentEventAuthRejected, onAuthRejected]);
 
   return {
     tentUsersByTent,

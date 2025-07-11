@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { FaWifi, FaExchangeAlt, FaWaveSquare, FaClock } from "react-icons/fa";
+import { FaTimesCircle, FaExchangeAlt, FaRandom, FaWifi, FaEllipsisV } from "react-icons/fa";
+import { PeerConnectionInfoModal } from './PeerConnectionInfoModal';
 
 interface PeerConnectionStatusProps {
   user: string;
@@ -13,8 +14,17 @@ interface ConnectionStats {
   jitter?: number;
 }
 
+function formatBitrate(bits?: number) {
+    if (bits === undefined) return "N/A";
+    if (bits >= 1_000_000) return (bits / 1_000_000).toFixed(2) + " Mb";
+    if (bits >= 1_000) return (bits / 1_000).toFixed(1) + " Kb";
+    return bits + " b";
+  }
+
 export function PeerConnectionStatus({ user, peerConnection }: PeerConnectionStatusProps) {
   const [connectionStats, setConnectionStats] = useState<ConnectionStats>({});
+
+  const [showInfoModal, setShowInfoModal] = useState(false);
 
 //   useEffect(()=>{
 //     const getConfiguration = peerConnection?.getConfiguration()
@@ -95,7 +105,7 @@ export function PeerConnectionStatus({ user, peerConnection }: PeerConnectionSta
         gap: 6,
       }}
     >
-      {/* Top row: user, state, signaling */}
+      {/* Top row: user, state, signaling, menu */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
         <span style={{ fontWeight: 700, fontSize: 13 }}>{user}</span>
         <span
@@ -126,20 +136,27 @@ export function PeerConnectionStatus({ user, peerConnection }: PeerConnectionSta
         >
           {peerConnection.signalingState}
         </span>
+        <button
+          className="ml-auto p-1 rounded hover:bg-gray-700 transition"
+          onClick={() => setShowInfoModal(true)}
+          title="Show PeerConnection Info"
+        >
+          <FaEllipsisV />
+        </button>
       </div>
       {/* Bottom row: audio stats */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <span title="Bitrate" style={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <FaWaveSquare style={{ color: "#38bdf8" }} /> {connectionStats.bitrate ?? "N/A"}B
+          <FaExchangeAlt style={{ color: "#38bdf8" }} /> {formatBitrate(connectionStats.bitrate)}
         </span>
         <span title="RTT" style={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <FaClock style={{ color: "#fbbf24" }} /> {connectionStats.rtt !== undefined ? `${(connectionStats.rtt * 1000).toFixed(1)}ms` : "N/A"}
+          <FaWifi style={{ color: "#a3e635" }} /> {connectionStats.rtt !== undefined ? `${(connectionStats.rtt * 1000).toFixed(1)}ms` : "N/A"}
         </span>
         <span title="Lost" style={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <FaExchangeAlt style={{ color: "#f87171" }} /> {connectionStats.packetsLost ?? "N/A"}
+          <FaTimesCircle style={{ color: "#f87171" }} /> {connectionStats.packetsLost ?? "N/A"}
         </span>
         <span title="Jitter" style={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <FaWifi style={{ color: "#a3e635" }} /> {connectionStats.jitter !== undefined ? `${(connectionStats.jitter * 1000).toFixed(1)}ms` : "N/A"}
+          <FaRandom style={{ color: "#fbbf24" }} /> {connectionStats.jitter !== undefined ? `${(connectionStats.jitter * 1000).toFixed(1)}ms` : "N/A"}
         </span>
         {/* <span title="Bitrate" style={{ display: "flex", alignItems: "center", gap: 2 }}>
           <FaWaveSquare style={{ color: "#38bdf8" }} /> {connectionStats.bitrate ?? "N/A"}B
@@ -154,6 +171,11 @@ export function PeerConnectionStatus({ user, peerConnection }: PeerConnectionSta
           <FaWifi style={{ color: "#a3e635" }} /> {connectionStats.jitter !== undefined ? `${(connectionStats.jitter * 1000).toFixed(1)}ms` : "N/A"}
         </span> */}
       </div>
+      <PeerConnectionInfoModal
+        open={showInfoModal}
+        onClose={() => setShowInfoModal(false)}
+        peerConnection={peerConnection}
+      />
     </div>
   );
 } 
