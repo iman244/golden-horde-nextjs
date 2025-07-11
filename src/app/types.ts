@@ -42,7 +42,9 @@ export type VoiceChatSignalingMessage =
     }
   | { type: "ping"; ts: number; username: string; target_user?: string }
   | { type: "pong"; ts: number; username: string; target_user?: string }
-  | { type: "connect_info"; username: string; other_users: string[] };
+  | { type: "connect_info"; username: string; other_users: string[] }
+  | { type: "user_join"; tent_id: string; username: string }
+  | { type: "user_left"; tent_id: string; username: string };
 
 export type TentEventMessage =
   | { type: "current_tent_users"; tents: { [tentId: string]: string[] } }

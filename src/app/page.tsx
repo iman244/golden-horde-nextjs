@@ -7,12 +7,16 @@ import axios from "axios";
 import { Horde } from "./data.types";
 import { LogsViewer } from "./components/LogsViewer";
 import { PeerConnectionStatus } from "./components/PeerConnectionStatus";
-import { useSignaling } from "./hooks/useSignaling";
-import type { TentEventMessage } from "./types";
+import { useRouter } from "next/navigation";
+import { useTentEvents } from "./hooks/useTentEvents";
 
 export default function Home() {
-  const [logsModalOpen, setLogsModalOpen] = useState(false);
+  const [token, setToken] = useState<string | null | undefined>(undefined); // undefined = loading, null = no token
+  const router = useRouter();
 
+  // Always call hooks at the top
+  const voiceChat = useVoiceChat(token ?? null);
+  const [logsModalOpen, setLogsModalOpen] = useState(false);
   const hordes_q = useQuery({
     queryKey: ["hordes"],
     queryFn: async () =>
@@ -22,90 +26,12 @@ export default function Home() {
     refetchInterval: false,
     refetchOnWindowFocus: false,
   });
-
   const {
-    logs,
-    wsLogs,
-    wsLatency,
-    currentTentId,
-    isConnected,
-    peerConnections,
-    joinTent,
-    leaveTent,
-    username,
-  } = useVoiceChat();
-
-  // Tent users by tentId (from tent-events WS)
-  const [tentUsersByTent, setTentUsersByTent] = useState<{
-    [tentId: string]: string[];
-  }>({});
-
-  useEffect(() => {
-    console.log("tentUsersByTent", tentUsersByTent);
-  }, [tentUsersByTent]);
-
-  // Tent-events WebSocket connection
-  const { onSignal: onTentEventSignal, wsLatency: onTentEventWsLatency, isOpen: onTentEventIsOpen } =
-    useSignaling<TentEventMessage>({
-      url: `wss://${process.env.NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN}/ws/tent-events/`,
-    });
-
-  function hasTentId(
-    msg: TentEventMessage
-  ): msg is Extract<TentEventMessage, { tent_id: string }> {
-    return "tent_id" in msg && typeof msg.tent_id === "string";
-  }
-
-  useEffect(() => {
-    const handleTentEvent = (msg: TentEventMessage) => {
-      if (msg.type == "pong") {
-        return;
-      }
-      if (msg.type == "current_tent_users") {
-        setTentUsersByTent(msg.tents);
-      }
-      if (hasTentId(msg)) {
-        setTentUsersByTent((prev) => {
-          const users = prev[msg.tent_id] || [];
-          if (msg.type === "user_joined") {
-            console.log("user_joined", {
-              ...prev,
-              [msg.tent_id]: [...users, msg.username],
-            });
-            if (!users.includes(msg.username)) {
-              return { ...prev, [msg.tent_id]: [...users, msg.username] };
-            }
-          } else if (msg.type === "user_left") {
-            if (users.includes(msg.username)) {
-              console.log("user_left", {
-                ...prev,
-                [msg.tent_id]: [...users, msg.username],
-              });
-              // Only close the peer connection if the tentId matches the current tent
-              if (currentTentId !== null && msg.tent_id === String(currentTentId)) {
-                const entry = peerConnections.get(msg.username);
-                if (entry && entry.peerConnection) {
-                  entry.peerConnection.close();
-                }
-              }
-              return {
-                ...prev,
-                [msg.tent_id]: users.filter((u) => u !== msg.username),
-              };
-            }
-          }
-          return prev;
-        });
-      }
-    };
-    const unsubscribe = onTentEventSignal(handleTentEvent);
-    return () => {
-      unsubscribe();
-      setTentUsersByTent({});
-    };
-  }, [onTentEventSignal]);
-
-  // Device enumeration and selection
+    tentUsersByTent,
+    onTentEventWsLatency,
+    onTentEventIsOpen,
+  } = useTentEvents({token: token ?? null});
+  
   const devices = useDeviceEnumeration();
   const audioInputs = useMemo(
     () => devices.filter((d) => d.kind === "audioinput"),
@@ -115,18 +41,35 @@ export default function Home() {
     () => devices.filter((d) => d.kind === "audiooutput"),
     [devices]
   );
-
   const [selectedMicId, setSelectedMicId] = useState<string>("");
   const [selectedSpeakerId, setSelectedSpeakerId] = useState<string>("");
 
+  useEffect(() => {
+    const t = localStorage.getItem("token");
+    if (!t) {
+      setToken(null);
+      router.push("/auth");
+    } else {
+      setToken(t);
+    }
+  }, [router]);
+
+  useEffect(()=>{
+    console.log("tentUsersByTent", tentUsersByTent)
+  },[tentUsersByTent])
+
+  // Only render the app if token is present (null = no token, undefined = loading)
+  if (token === undefined) return null;
+  if (token === null) return null;
+
   // Handle tent click - join or leave tent
   const handleTentClick = async (tentId: number) => {
-    if (currentTentId === tentId) {
+    if (voiceChat.currentTentId === tentId) {
       // Leave current tent
-      await leaveTent();
+      await voiceChat.leaveTent();
     } else {
       // Join new tent
-      await joinTent(tentId);
+      await voiceChat.joinTent(tentId);
     }
   };
 
@@ -151,7 +94,7 @@ export default function Home() {
         }}
       >
         {/* Username Info Bar */}
-        {username && (
+        {voiceChat.username && (
           <div
             style={{
               marginBottom: "16px",
@@ -166,7 +109,7 @@ export default function Home() {
             }}
           >
             Your username:{" "}
-            <span style={{ color: "#fff", fontWeight: 700 }}>{username}</span>
+            <span style={{ color: "#fff", fontWeight: 700 }}>{voiceChat.username}</span>
           </div>
         )}
         {/* Header */}
@@ -290,12 +233,12 @@ export default function Home() {
                       marginBottom: "12px",
                       padding: "12px",
                       background:
-                        currentTentId === t.id
+                        voiceChat.currentTentId === t.id
                           ? "rgba(68, 255, 68, 0.1)"
                           : "rgba(255, 255, 255, 0.03)",
                       borderRadius: "6px",
                       border:
-                        currentTentId === t.id
+                        voiceChat.currentTentId === t.id
                           ? "1px solid rgba(68, 255, 68, 0.3)"
                           : "1px solid rgba(255, 255, 255, 0.1)",
                       transition: "all 0.2s ease",
@@ -307,7 +250,7 @@ export default function Home() {
                         alignItems: "center",
                         justifyContent: "space-between",
                         gap: "12px",
-                        marginBottom: currentTentId === t.id ? "12px" : "0",
+                        marginBottom: voiceChat.currentTentId === t.id ? "12px" : "0",
                       }}
                     >
                       <div
@@ -328,7 +271,7 @@ export default function Home() {
                         >
                           {t.name}
                         </span>
-                        {currentTentId === t.id && (
+                        {voiceChat.currentTentId === t.id && (
                           <span
                             style={{
                               color: "#44ff44",
@@ -348,7 +291,7 @@ export default function Home() {
                         style={{
                           padding: "8px 16px",
                           backgroundColor:
-                            currentTentId === t.id ? "#dc2626" : "#059669",
+                            voiceChat.currentTentId === t.id ? "#dc2626" : "#059669",
                           color: "white",
                           border: "none",
                           borderRadius: "6px",
@@ -369,12 +312,12 @@ export default function Home() {
                           e.currentTarget.style.boxShadow = "none";
                         }}
                       >
-                        {currentTentId === t.id ? "Leave" : "Join"}
+                        {voiceChat.currentTentId === t.id ? "Leave" : "Join"}
                       </button>
                     </div>
 
                     {/* WebSocket RTT */}
-                    {isConnected && currentTentId === t.id && (
+                    {voiceChat.isConnected && voiceChat.currentTentId === t.id && (
                       <div
                         style={{
                           background: "rgba(59,130,246,0.15)",
@@ -388,8 +331,8 @@ export default function Home() {
                         }}
                       >
                         WebSocket RTT:{" "}
-                        {wsLatency !== null && wsLatency !== undefined
-                          ? `${wsLatency} ms`
+                        {voiceChat.wsLatency !== null && voiceChat.wsLatency !== undefined
+                          ? `${voiceChat.wsLatency} ms`
                           : "N/A"}
                       </div>
                     )}
@@ -404,15 +347,15 @@ export default function Home() {
                       }}
                     >
                       {(tentUsersByTent[t.id] || []).map((user) =>
-                        peerConnections.has(user) ? (
+                        voiceChat.peerConnections.has(user) ? (
                           <PeerConnectionStatus
                             key={user}
                             user={user}
                             peerConnection={
-                              peerConnections.get(user)?.peerConnection || null
+                              voiceChat.peerConnections.get(user)?.peerConnection || null
                             }
                           />
-                        ) : user == username ? (
+                        ) : user == voiceChat.username ? (
                           <div
                             key={user}
                             style={{
@@ -456,7 +399,7 @@ export default function Home() {
                             <span style={{ fontWeight: 700, fontSize: 13 }}>
                               {user}
                             </span>
-                            {currentTentId === t.id && (
+                            {voiceChat.currentTentId === t.id && (
                               <span
                                 style={{
                                   background: "#fbbf24",
@@ -483,7 +426,7 @@ export default function Home() {
         </div>
 
         {/* Connection Status */}
-        {isConnected && (
+        {voiceChat.isConnected && (
           <div
             style={{
               background: "linear-gradient(135deg, #059669, #047857)",
@@ -510,10 +453,10 @@ export default function Home() {
                 }}
               >
                 <span style={{ fontSize: "16px" }}>🔗</span>
-                <strong>Connected to Tent {currentTentId}</strong>
+                <strong>Connected to Tent {voiceChat.currentTentId}</strong>
               </div>
               <button
-                onClick={leaveTent}
+                onClick={voiceChat.leaveTent}
                 style={{
                   padding: "6px 12px",
                   backgroundColor: "rgba(220, 38, 38, 0.8)",
@@ -653,7 +596,7 @@ export default function Home() {
         </div>
 
         {/* Render an <audio> element for each remote stream */}
-        {Array.from(peerConnections.entries()).map(([username, { stream }]) =>
+        {Array.from(voiceChat.peerConnections.entries()).map(([username, { stream }]) =>
           stream ? (
             <audio
               key={username}
@@ -716,8 +659,8 @@ export default function Home() {
             ✕
           </button>
           <LogsViewer
-            logs={logs}
-            wsLogs={wsLogs}
+            logs={voiceChat.logs}
+            wsLogs={voiceChat.wsLogs}
             maxHeight="400px"
             modal={true}
           />

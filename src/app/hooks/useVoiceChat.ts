@@ -5,7 +5,7 @@ import type { VoiceChatSignalingMessage } from "../types";
 import { useLogs } from "./useLogs";
 import { useMediaStream } from "./useMediaStream";
 
-export function useVoiceChat() {
+export function useVoiceChat(token: string | null) {
   const { logs, addLog } = useLogs();
   const [currentTentId, setCurrentTentId] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -19,7 +19,10 @@ export function useVoiceChat() {
     stopMedia,
   } = useMediaStream();
 
-  const getVoiceChatUrl = useCallback((id: string | number) => `wss://${process.env.NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN}/ws/voice_chat/${id}/`,[])
+  const getVoiceChatUrl = useCallback((id: string | number) => {
+    if (!token) return "";
+    return `wss://${process.env.NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN}/ws/voice_chat/${id}/?token=${encodeURIComponent(token)}`;
+  }, [token]);
 
   // Initialize signaling when tentId changes
   const { wsLogs, sendSignal, onSignal, wsLatency } = useSignaling<VoiceChatSignalingMessage>({
@@ -60,6 +63,64 @@ export function useVoiceChat() {
     addTracksToPeer,
     closeAllPeerConnections,
   } = useWebRTC(handleIceCandidate);
+
+  // Helper to handle connect_info message
+  const handleConnectInfo = useCallback((msg: Extract<VoiceChatSignalingMessage, { type: "connect_info" }>, localStream: MediaStream | null) => {
+    setUsername(msg.username);
+    setOtherUsers(Array.isArray(msg.other_users) ? msg.other_users : []);
+    addLog(`Your user name: ${msg.username}`);
+    addLog(`Other users in tent: ${(msg.other_users || []).join(", ")}`);
+    console.log("peerDataRef", peerDataRef)
+    // For each other user, create a peer connection and send offer
+    if (msg.username) {
+      msg.other_users.forEach((target_user) => {
+        if (target_user !== msg.username) {
+          let peerConnEntry = peerDataRef.current.get(target_user);
+          if (!peerConnEntry) {
+            createPeerConnection({
+              username: msg.username,
+              target_user,
+            });
+            if (localStream) {
+              addTracksToPeer(localStream, target_user);
+            }
+            peerConnEntry = peerDataRef.current.get(target_user);
+          }
+          if (peerConnEntry) {
+            console.log("we are creating offer")
+            peerConnEntry.peerConnection.createOffer().then((offer) => {
+              peerConnEntry!.peerConnection.setLocalDescription(offer).then(() => {
+                sendSignal({
+                  type: "offer",
+                  sdp: offer.sdp!,
+                  username: msg.username,
+                  target_user,
+                });
+                addLog(`Offer sent to ${target_user}`);
+              }).catch(err => {
+                console.log("we are setLocalDescription", err)
+              });
+            }).catch(err => {
+                console.log("we are in createOffer error", err)
+            });
+          }
+        }
+      });
+    }
+  }, [setUsername, setOtherUsers, addLog, createPeerConnection, addTracksToPeer, sendSignal]);
+
+  // Helper to handle user_join and user_left
+  const handleUserJoinLeave = useCallback((msg: Extract<VoiceChatSignalingMessage, { type: "user_join" | "user_left" }>) => {
+    // You can add any local state update or logging here if needed
+    addLog(`User ${msg.username} ${msg.type === "user_join" ? "joined" : "left"} tent ${msg.tent_id}`);
+    // If you want to close peer connection on user_left for current tent, do it here
+    if (msg.type === "user_left" && currentTentId !== null && msg.tent_id === String(currentTentId)) {
+      const entry = peerConnections.get(msg.username);
+      if (entry && entry.peerConnection) {
+        entry.peerConnection.close();
+      }
+    }
+  }, [addLog, currentTentId, peerConnections]);
 
   // Join a specific tent
   const joinTent = useCallback(
@@ -229,45 +290,7 @@ export function useVoiceChat() {
             const unsubscribe = onSignal((msg: VoiceChatSignalingMessage) => {
               switch (msg.type) {
                 case "connect_info":
-                  setUsername(msg.username);
-                  setOtherUsers(
-                    Array.isArray(msg.other_users) ? msg.other_users : []
-                  );
-                  addLog(`Your user name: ${msg.username}`);
-                  addLog(
-                    `Other users in tent: ${(msg.other_users || []).join(", ")}`
-                  );
-                  // For each other user, create a peer connection and send offer
-                  if (msg.username) {
-                    msg.other_users.forEach((target_user) => {
-                      if (target_user !== msg.username) {
-                        let peerConnEntry = peerDataRef.current.get(target_user);
-                        if (!peerConnEntry) {
-                          createPeerConnection({
-                            username: msg.username,
-                            target_user,
-                          });
-                          if (localStream) {
-                            addTracksToPeer(localStream, target_user);
-                          }
-                          peerConnEntry = peerDataRef.current.get(target_user);
-                        }
-                        if (peerConnEntry) {
-                          peerConnEntry.peerConnection.createOffer().then((offer) => {
-                            peerConnEntry!.peerConnection.setLocalDescription(offer).then(() => {
-                              sendSignal({
-                                type: "offer",
-                                sdp: offer.sdp!,
-                                username: msg.username,
-                                target_user,
-                              });
-                              addLog(`Offer sent to ${target_user}`);
-                            });
-                          });
-                        }
-                      }
-                    });
-                  }
+                  handleConnectInfo(msg, localStream);
                   break;
                 case "offer":
                   handleOffer(msg);
@@ -278,9 +301,12 @@ export function useVoiceChat() {
                 case "ice-candidate":
                   handleIceCandidateMsg(msg);
                   break;
+                case "user_join":
+                case "user_left":
+                  handleUserJoinLeave(msg);
+                  break;
                 case "ping":
                 case "pong":
-                  // Ignore ping/pong messages for logging and signaling
                   break;
                 default:
                   addLog(
@@ -289,34 +315,6 @@ export function useVoiceChat() {
                   break;
               }
             });
-
-            // Only create and send offer if we are the first peer (offerer)
-            // For demo, always create offer on mount
-            // pc.createOffer().then((offer) => {
-            //   setRole("offerer");
-            //   addLog("Role set: offerer");
-            //   addLog("Created offer, setting local description.");
-            //   return pc.setLocalDescription(offer).then(() => {
-            //     addLog(
-            //       "Local description set with offer. Sending offer to server."
-            //     );
-            //     if (typeof offer.sdp === "string") {
-            //       sendSignal({
-            //         type: "offer",
-            //         sdp: offer.sdp,
-            //         username: username ?? "",
-            //         target_user: "peer1", // This will be updated by the server
-            //       });
-            //       addLog("Offer sent to server.");
-            //     } else {
-            //       const errMsg = `Error: offer.sdp is not a string (value: ${String(
-            //         offer.sdp
-            //       )})`;
-            //       addLog(errMsg);
-            //       throw new Error(errMsg);
-            //     }
-            //   });
-            // });
 
             cleanup = () => {
               if (unsubscribe) unsubscribe();
@@ -361,6 +359,9 @@ export function useVoiceChat() {
       setUsername,
       setOtherUsers,
       username,
+      handleConnectInfo,
+      handleUserJoinLeave,
+      peerConnections,
     ]
   );
 
