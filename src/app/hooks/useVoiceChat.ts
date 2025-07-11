@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useWebRTC } from "./useWebRTC";
 import { useSignaling } from "./useSignaling";
 import type { VoiceChatSignalingMessage } from "../types";
@@ -13,11 +13,57 @@ export function useVoiceChat(token: string | null) {
   const [otherUsers, setOtherUsers] = useState<string[]>([]);
 
   const {
+    stream, // <-- add this
     error: mediaError,
     loading: mediaLoading,
     getMedia,
     stopMedia,
   } = useMediaStream();
+
+  // Mute state and toggle function
+  const [isMuted, setIsMuted] = useState(false);
+  const toggleMute = useCallback(() => {
+    if (stream) {
+      stream.getAudioTracks().forEach(track => {
+        track.enabled = !track.enabled;
+      });
+      // After toggling, update isMuted state based on first track
+      const firstTrack = stream.getAudioTracks()[0];
+      setIsMuted(firstTrack ? !firstTrack.enabled : false);
+    }
+  }, [stream]);
+
+  // Deafen state and toggle function
+  const [isDeafened, setIsDeafened] = useState(false);
+  const wasMutedBeforeDeafen = useRef(false);
+  const toggleDeafen = useCallback(() => {
+    setIsDeafened(d => {
+      const next = !d;
+      if (next) {
+        // If deafen is being activated, also mute mic
+        if (stream) {
+          wasMutedBeforeDeafen.current = isMuted;
+          stream.getAudioTracks().forEach(track => {
+            if (track.enabled) track.enabled = false;
+          });
+          // Update isMuted state
+          const firstTrack = stream.getAudioTracks()[0];
+          setIsMuted(firstTrack ? !firstTrack.enabled : false);
+        }
+      } else {
+        // If deafen is being deactivated, unmute if user was not muted before deafen
+        if (stream && !wasMutedBeforeDeafen.current) {
+          stream.getAudioTracks().forEach(track => {
+            if (!track.enabled) track.enabled = true;
+          });
+          // Update isMuted state
+          const firstTrack = stream.getAudioTracks()[0];
+          setIsMuted(firstTrack ? !firstTrack.enabled : false);
+        }
+      }
+      return next;
+    });
+  }, [stream, isMuted]);
 
   const getVoiceChatUrl = useCallback((id: string | number) => {
     if (!token) return "";
@@ -410,5 +456,9 @@ export function useVoiceChat(token: string | null) {
     leaveTent,
     username,
     otherUsers,
+    isMuted, // <-- expose mute state
+    toggleMute, // <-- expose mute toggle
+    isDeafened, // <-- expose deafen state
+    toggleDeafen, // <-- expose deafen toggle
   };
 }

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 
 interface PeerConnectionInfoModalProps {
   open: boolean;
@@ -6,7 +6,13 @@ interface PeerConnectionInfoModalProps {
   peerConnection: RTCPeerConnection | null;
 }
 
-export const PeerConnectionInfoModal: React.FC<PeerConnectionInfoModalProps> = ({ open, onClose, peerConnection }) => {
+export const PeerConnectionInfoModal: React.FC<
+  PeerConnectionInfoModalProps
+> = ({ open, onClose, peerConnection }) => {
+  useEffect(() => {
+    console.log("peerConnection", peerConnection);
+  }, [peerConnection]);
+  
   if (!open) return null;
 
   return (
@@ -23,10 +29,12 @@ export const PeerConnectionInfoModal: React.FC<PeerConnectionInfoModalProps> = (
         {peerConnection ? (
           <div className="space-y-2 text-sm">
             <div>
-              <span className="font-semibold">Connection State:</span> {peerConnection.connectionState}
+              <span className="font-semibold">Connection State:</span>{" "}
+              {peerConnection.connectionState}
             </div>
             <div>
-              <span className="font-semibold">Signaling State:</span> {peerConnection.signalingState}
+              <span className="font-semibold">Signaling State:</span>{" "}
+              {peerConnection.signalingState}
             </div>
             <div>
               <span className="font-semibold">Configuration:</span>
@@ -41,4 +49,4 @@ export const PeerConnectionInfoModal: React.FC<PeerConnectionInfoModalProps> = (
       </div>
     </div>
   );
-}; 
+};

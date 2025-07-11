@@ -2,13 +2,14 @@
 import { useVoiceChat } from "./hooks/useVoiceChat";
 import { useDeviceEnumeration } from "./hooks/useDeviceEnumeration";
 import { useMemo, useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import axios from "axios";
-import { Horde } from "./data.types";
 import { LogsViewer } from "./components/LogsViewer";
 import { PeerConnectionStatus } from "./components/PeerConnectionStatus";
 import { useRouter } from "next/navigation";
 import { useTentEvents } from "./hooks/useTentEvents";
+import { FaMicrophone, FaMicrophoneSlash } from "react-icons/fa";
+import { LuHeadphoneOff, LuHeadphones } from "react-icons/lu";
+import type { AxiosError } from "axios";
+import { useHordesQuery } from "./hooks/useHordesQuery";
 
 export default function Home() {
   const [token, setToken] = useState<string | null | undefined>(undefined); // undefined = loading, null = no token
@@ -19,24 +20,26 @@ export default function Home() {
   // Always call hooks at the top
   const voiceChat = useVoiceChat(token ?? null);
   const [logsModalOpen, setLogsModalOpen] = useState(false);
-  const hordes_q = useQuery({
-    queryKey: ["hordes"],
-    queryFn: async () =>
-      await axios<Horde[]>(
-        `https://${process.env.NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN}/api/hordes/`
-      ),
-    refetchInterval: false,
-    refetchOnWindowFocus: false,
-  });
+  const hordes_q = useHordesQuery();
+
+  useEffect(() => {
+    //
+  }, [hordes_q]);
+
   const { tentUsersByTent, onTentEventWsLatency, onTentEventIsOpen } =
     useTentEvents({
       token: token ?? null,
-      onAuthRejected: () => {
-        localStorage.removeItem("token");
-        setAuthError("Session expired or invalid. Please sign in again.");
-        setRedirectCountdown(5);
-      },
     });
+
+  // Check for authorization error in hordes_q
+  useEffect(() => {
+    const err = hordes_q.error as AxiosError | undefined;
+    if (err && (err.response?.status === 401 || err.response?.status === 403)) {
+      localStorage.removeItem("token");
+      setAuthError("Session expired or invalid. Please sign in again.");
+      setRedirectCountdown(5);
+    }
+  }, [hordes_q.error]);
 
   const devices = useDeviceEnumeration();
   const audioInputs = useMemo(
@@ -84,7 +87,9 @@ export default function Home() {
       <div className="auth-page-bg">
         <div className="auth-card">
           <h2 className="auth-heading">Authentication Error</h2>
-          <div className="auth-error" style={{ marginBottom: 24 }}>{authError}</div>
+          <div className="auth-error" style={{ marginBottom: 24 }}>
+            {authError}
+          </div>
           <button
             className="auth-btn-primary"
             onClick={() => router.replace("/auth/sign-in")}
@@ -93,7 +98,8 @@ export default function Home() {
             Sign In
           </button>
           <div className="auth-muted text-center">
-            Redirecting in {redirectCountdown} second{redirectCountdown !== 1 ? "s" : ""}...
+            Redirecting in {redirectCountdown} second
+            {redirectCountdown !== 1 ? "s" : ""}...
           </div>
         </div>
       </div>
@@ -143,13 +149,79 @@ export default function Home() {
               fontWeight: 600,
               fontFamily: "monospace",
               fontSize: "14px",
-              display: "inline-block",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
             }}
           >
-            Your username:{" "}
-            <span style={{ color: "#fff", fontWeight: 700 }}>
-              {voiceChat.username}
+            <span>
+              Your username:{" "}
+              <span style={{ color: "#fff", fontWeight: 700 }}>
+                {voiceChat.username}
+              </span>
             </span>
+            <button
+              onClick={voiceChat.toggleMute}
+              style={{
+                marginLeft: 16,
+                background: voiceChat.isMuted ? "#991b1b" : "#23272b",
+                color: voiceChat.isMuted ? "#fff" : "#b0b3b8",
+                border: "none",
+                borderRadius: 6,
+                padding: "4px 10px",
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                transition: "background 0.2s",
+              }}
+              title={
+                voiceChat.isMuted ? "Unmute microphone" : "Mute microphone"
+              }
+            >
+              {voiceChat.isMuted ? (
+                <FaMicrophoneSlash />
+              ) : (
+                <FaMicrophone />
+              )}
+              {voiceChat.isMuted ? "Unmute" : "Mute"}
+            </button>
+            <button
+              onClick={voiceChat.toggleDeafen}
+              style={{
+                marginLeft: 8,
+                background: voiceChat.isDeafened ? "#991b1b" : "#23272b",
+                color: voiceChat.isDeafened ? "#fff" : "#b0b3b8",
+                border: "none",
+                borderRadius: 6,
+                padding: "4px 10px",
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                transition: "background 0.2s",
+              }}
+              title={
+                voiceChat.isDeafened
+                  ? "Undeafen (hear others)"
+                  : "Deafen (mute all incoming audio)"
+              }
+            >
+                {voiceChat.isDeafened ? <LuHeadphoneOff /> : <LuHeadphones />}
+              <span
+                style={{
+                  position: "relative",
+                  display: "inline-block",
+                  height: 20,
+                }}
+              >
+              {voiceChat.isDeafened ? "Undeafen" : "Deafen"}
+              </span>
+            </button>
           </div>
         )}
         {/* Header */}
@@ -651,6 +723,7 @@ export default function Home() {
                 key={username}
                 autoPlay
                 hidden
+                muted={voiceChat.isDeafened}
                 ref={(el) => {
                   if (el && el.srcObject !== stream) {
                     el.srcObject = stream;
