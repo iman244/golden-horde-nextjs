@@ -27,7 +27,7 @@ export default function SignUpPage() {
         localStorage.setItem("username", variables.username);
       }
       setTimeout(() => {
-        router.push("/");
+        router.push("/auth/sign-in");
       }, 500);
     },
   });
