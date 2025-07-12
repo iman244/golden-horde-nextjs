@@ -456,9 +456,9 @@ export function useVoiceChat(token: string | null) {
     leaveTent,
     username,
     otherUsers,
-    isMuted, // <-- expose mute state
-    toggleMute, // <-- expose mute toggle
-    isDeafened, // <-- expose deafen state
-    toggleDeafen, // <-- expose deafen toggle
+    isMuted,
+    toggleMute,
+    isDeafened,
+    toggleDeafen,
   };
 }

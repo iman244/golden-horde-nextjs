@@ -1,3 +1,6 @@
+// Re-export existing types from hooks
+export type { LogEntry, LogLevel } from './hooks/useLogs';
+
 export interface PeerConnectionStatus {
   connectionState: string;
   iceConnectionState: string;

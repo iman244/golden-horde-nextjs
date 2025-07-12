@@ -2,14 +2,21 @@
 import { useVoiceChat } from "./hooks/useVoiceChat";
 import { useDeviceEnumeration } from "./hooks/useDeviceEnumeration";
 import { useMemo, useState, useEffect } from "react";
-import { LogsViewer } from "./components/LogsViewer";
-import { PeerConnectionStatus } from "./components/PeerConnectionStatus";
 import { useRouter } from "next/navigation";
 import { useTentEvents } from "./hooks/useTentEvents";
-import { FaMicrophone, FaMicrophoneSlash } from "react-icons/fa";
-import { LuHeadphoneOff, LuHeadphones } from "react-icons/lu";
 import type { AxiosError } from "axios";
 import { useHordesQuery } from "./hooks/useHordesQuery";
+
+// Import components
+import {
+  MainLayout,
+  UserInfoBar,
+  AppHeader,
+  HordesList,
+  ConnectionStatus,
+  DeviceSettings,
+  LogsModal,
+} from "./components";
 
 export default function Home() {
   const [token, setToken] = useState<string | null | undefined>(undefined); // undefined = loading, null = no token
@@ -21,10 +28,6 @@ export default function Home() {
   const voiceChat = useVoiceChat(token ?? null);
   const [logsModalOpen, setLogsModalOpen] = useState(false);
   const hordes_q = useHordesQuery();
-
-  useEffect(() => {
-    //
-  }, [hordes_q]);
 
   const { tentUsersByTent, onTentEventWsLatency, onTentEventIsOpen } =
     useTentEvents({
@@ -57,7 +60,7 @@ export default function Home() {
     const t = localStorage.getItem("token");
     if (!t) {
       setToken(null);
-      router.push("/auth");
+      router.push("/auth/sign-in/");
     } else {
       setToken(t);
     }
@@ -118,676 +121,71 @@ export default function Home() {
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%)",
-        fontFamily:
-          'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      }}
-    >
-      {/* Main Content */}
-      <div
-        style={{
-          flex: "1",
-          padding: "24px",
-          overflowY: "auto",
-          background: "rgba(0, 0, 0, 0.3)",
-          backdropFilter: "blur(10px)",
-        }}
-      >
-        {/* Username Info Bar */}
-        {voiceChat.username && (
-          <div
-            style={{
-              marginBottom: "16px",
-              padding: "10px 16px",
-              background: "rgba(59,130,246,0.1)",
-              borderRadius: "6px",
-              color: "#3b82f6",
-              fontWeight: 600,
-              fontFamily: "monospace",
-              fontSize: "14px",
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-            }}
-          >
-            <span>
-              Your username:{" "}
-              <span style={{ color: "#fff", fontWeight: 700 }}>
-                {voiceChat.username}
-              </span>
-            </span>
-            <button
-              onClick={voiceChat.toggleMute}
-              style={{
-                marginLeft: 16,
-                background: voiceChat.isMuted ? "#991b1b" : "#23272b",
-                color: voiceChat.isMuted ? "#fff" : "#b0b3b8",
-                border: "none",
-                borderRadius: 6,
-                padding: "4px 10px",
-                fontWeight: 600,
-                fontSize: 13,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                transition: "background 0.2s",
-              }}
-              title={
-                voiceChat.isMuted ? "Unmute microphone" : "Mute microphone"
-              }
-            >
-              {voiceChat.isMuted ? (
-                <FaMicrophoneSlash />
-              ) : (
-                <FaMicrophone />
-              )}
-              {voiceChat.isMuted ? "Unmute" : "Mute"}
-            </button>
-            <button
-              onClick={voiceChat.toggleDeafen}
-              style={{
-                marginLeft: 8,
-                background: voiceChat.isDeafened ? "#991b1b" : "#23272b",
-                color: voiceChat.isDeafened ? "#fff" : "#b0b3b8",
-                border: "none",
-                borderRadius: 6,
-                padding: "4px 10px",
-                fontWeight: 600,
-                fontSize: 13,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                transition: "background 0.2s",
-              }}
-              title={
-                voiceChat.isDeafened
-                  ? "Undeafen (hear others)"
-                  : "Deafen (mute all incoming audio)"
-              }
-            >
-                {voiceChat.isDeafened ? <LuHeadphoneOff /> : <LuHeadphones />}
-              <span
-                style={{
-                  position: "relative",
-                  display: "inline-block",
-                  height: 20,
-                }}
-              >
-              {voiceChat.isDeafened ? "Undeafen" : "Deafen"}
-              </span>
-            </button>
-          </div>
-        )}
-        {/* Header */}
-        <div
-          style={{
-            marginBottom: "32px",
-            paddingBottom: "20px",
-            borderBottom: "1px solid #333",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div>
-            <h1
-              style={{
-                margin: "0 0 8px 0",
-                fontSize: "28px",
-                fontWeight: "700",
-                color: "#fff",
-                background: "linear-gradient(45deg, #ffd700, #ffed4e)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}
-            >
-              Golden Horde Voice Chat
-            </h1>
-
-            <div
-              style={{
-                background: "rgba(59,130,246,0.15)",
-                color: "#0ff",
-                padding: "8px 16px",
-                borderRadius: "6px",
-                marginBottom: "12px",
-                fontFamily: "monospace",
-                fontSize: "13px",
-                display: "inline-block",
-              }}
-            >
-              General WebSocket RTT:{" "}
-              {onTentEventWsLatency !== null &&
-              onTentEventWsLatency !== undefined
-                ? `${onTentEventWsLatency} ms`
-                : onTentEventIsOpen
-                ? "getting ping..."
-                : "N/A"}
-            </div>
-
-            <p
-              style={{
-                margin: "0",
-                color: "#9ca3af",
-                fontSize: "14px",
-              }}
-            >
-              Click on a tent to join voice chat
-            </p>
-          </div>
-
-          {/* Logs Button */}
-          <button
-            onClick={() => setLogsModalOpen(true)}
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "rgba(59, 130, 246, 0.8)",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontSize: "14px",
-              fontWeight: "600",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              transition: "all 0.2s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 1)";
-              e.currentTarget.style.transform = "translateY(-1px)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 0.8)";
-              e.currentTarget.style.transform = "translateY(0)";
-            }}
-          >
-            📋 View Logs
-          </button>
-        </div>
-
-        {/* Hordes List */}
-        <div style={{ marginBottom: "32px" }}>
-          {hordes_q.data?.data.map((h) => (
-            <div
-              key={h.id}
-              style={{
-                marginBottom: "24px",
-                padding: "16px",
-                background: "rgba(255, 255, 255, 0.05)",
-                borderRadius: "8px",
-                border: "1px solid rgba(255, 255, 255, 0.1)",
-              }}
-            >
-              <h3
-                style={{
-                  margin: "0 0 12px 0",
-                  fontSize: "18px",
-                  fontWeight: "600",
-                  color: "#ffd700",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                }}
-              >
-                🏰 {h.name}
-              </h3>
-              <div style={{ marginLeft: "8px" }}>
-                {h.tents.map((t) => (
-                  <div
-                    key={t.id}
-                    style={{
-                      marginBottom: "12px",
-                      padding: "12px",
-                      background:
-                        voiceChat.currentTentId === t.id
-                          ? "rgba(68, 255, 68, 0.1)"
-                          : "rgba(255, 255, 255, 0.03)",
-                      borderRadius: "6px",
-                      border:
-                        voiceChat.currentTentId === t.id
-                          ? "1px solid rgba(68, 255, 68, 0.3)"
-                          : "1px solid rgba(255, 255, 255, 0.1)",
-                      transition: "all 0.2s ease",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: "12px",
-                        marginBottom:
-                          voiceChat.currentTentId === t.id ? "12px" : "0",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          flex: 1,
-                        }}
-                      >
-                        <span style={{ fontSize: "16px" }}>⛺</span>
-                        <span
-                          style={{
-                            color: "#fff",
-                            fontWeight: "500",
-                            fontSize: "14px",
-                          }}
-                        >
-                          {t.name}
-                        </span>
-                        {voiceChat.currentTentId === t.id && (
-                          <span
-                            style={{
-                              color: "#44ff44",
-                              fontSize: "12px",
-                              fontWeight: "600",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "4px",
-                            }}
-                          >
-                            ✓ Connected
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => handleTentClick(t.id)}
-                        style={{
-                          padding: "8px 16px",
-                          backgroundColor:
-                            voiceChat.currentTentId === t.id
-                              ? "#dc2626"
-                              : "#059669",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                          fontSize: "12px",
-                          fontWeight: "600",
-                          transition: "all 0.2s ease",
-                          minWidth: "80px",
-                          textTransform: "capitalize" as const,
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.transform = "translateY(-1px)";
-                          e.currentTarget.style.boxShadow =
-                            "0 4px 12px rgba(0, 0, 0, 0.3)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.transform = "translateY(0)";
-                          e.currentTarget.style.boxShadow = "none";
-                        }}
-                      >
-                        {voiceChat.currentTentId === t.id ? "Leave" : "Join"}
-                      </button>
-                    </div>
-
-                    {/* WebSocket RTT */}
-                    {voiceChat.isConnected &&
-                      voiceChat.currentTentId === t.id && (
-                        <div
-                          style={{
-                            background: "rgba(59,130,246,0.15)",
-                            color: "#0ff",
-                            padding: "8px 16px",
-                            borderRadius: "6px",
-                            marginBottom: "12px",
-                            fontFamily: "monospace",
-                            fontSize: "13px",
-                            display: "inline-block",
-                          }}
-                        >
-                          WebSocket RTT:{" "}
-                          {voiceChat.wsLatency !== null &&
-                          voiceChat.wsLatency !== undefined
-                            ? `${voiceChat.wsLatency} ms`
-                            : "N/A"}
-                        </div>
-                      )}
-
-                    {/* Users in Tent (always show, grouped by tent) */}
-                    <div
-                      style={{
-                        marginTop:
-                          (tentUsersByTent[t.id] || []).length === 0
-                            ? "0"
-                            : "12px",
-                      }}
-                    >
-                      {(tentUsersByTent[t.id] || []).map((user) =>
-                        voiceChat.peerConnections.has(user) ? (
-                          <PeerConnectionStatus
-                            key={user}
-                            user={user}
-                            peerConnection={
-                              voiceChat.peerConnections.get(user)
-                                ?.peerConnection || null
-                            }
-                          />
-                        ) : user == voiceChat.username ? (
-                          <div
-                            key={user}
-                            style={{
-                              background: "rgba(31,41,55,0.85)",
-                              borderRadius: 10,
-                              padding: "10px 14px",
-                              fontFamily: "monospace",
-                              fontSize: 12,
-                              color: "#fff",
-                              marginBottom: 8,
-                              boxShadow: "0 2px 8px 0 rgba(0,0,0,0.10)",
-                              display: "flex",
-                              flexDirection: "row",
-                              gap: 6,
-                            }}
-                          >
-                            <span style={{ fontWeight: 700, fontSize: 13 }}>
-                              {user}
-                            </span>
-                            <span style={{ color: "yellow", fontWeight: 500 }}>
-                              (yourself)
-                            </span>
-                          </div>
-                        ) : (
-                          <div
-                            key={user}
-                            style={{
-                              background: "rgba(31,41,55,0.85)",
-                              borderRadius: 10,
-                              padding: "10px 14px",
-                              fontFamily: "monospace",
-                              fontSize: 12,
-                              color: "#fff",
-                              marginBottom: 8,
-                              boxShadow: "0 2px 8px 0 rgba(0,0,0,0.10)",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 8,
-                            }}
-                          >
-                            <span style={{ fontWeight: 700, fontSize: 13 }}>
-                              {user}
-                            </span>
-                            {voiceChat.currentTentId === t.id && (
-                              <span
-                                style={{
-                                  background: "#fbbf24",
-                                  color: "#111",
-                                  borderRadius: 6,
-                                  padding: "2px 7px",
-                                  fontWeight: 600,
-                                  fontSize: 11,
-                                  marginLeft: 4,
-                                }}
-                              >
-                                Not connected
-                              </span>
-                            )}
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Connection Status */}
-        {voiceChat.isConnected && (
-          <div
-            style={{
-              background: "linear-gradient(135deg, #059669, #047857)",
-              color: "#fff",
-              padding: "16px",
-              marginBottom: "24px",
-              borderRadius: "8px",
-              border: "1px solid rgba(68, 255, 68, 0.3)",
-              boxShadow: "0 4px 12px rgba(5, 150, 105, 0.2)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                }}
-              >
-                <span style={{ fontSize: "16px" }}>🔗</span>
-                <strong>Connected to Tent {voiceChat.currentTentId}</strong>
-              </div>
-              <button
-                onClick={voiceChat.leaveTent}
-                style={{
-                  padding: "6px 12px",
-                  backgroundColor: "rgba(220, 38, 38, 0.8)",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                  fontWeight: "600",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor =
-                    "rgba(220, 38, 38, 1)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor =
-                    "rgba(220, 38, 38, 0.8)";
-                }}
-              >
-                Leave Tent
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Device Settings */}
-        <div
-          style={{
-            background: "rgba(255, 255, 255, 0.05)",
-            padding: "20px",
-            borderRadius: "8px",
-            border: "1px solid rgba(255, 255, 255, 0.1)",
-            marginBottom: "24px",
-          }}
-        >
-          <h3
-            style={{
-              margin: "0 0 16px 0",
-              fontSize: "16px",
-              fontWeight: "600",
-              color: "#fff",
-            }}
-          >
-            🎤 Audio Settings
-          </h3>
-
-          {/* Microphone selection */}
-          <div style={{ marginBottom: "16px" }}>
-            <label
-              htmlFor="mic-select"
-              style={{
-                display: "block",
-                marginBottom: "6px",
-                color: "#9ca3af",
-                fontSize: "12px",
-                fontWeight: "500",
-              }}
-            >
-              Microphone:
-            </label>
-            <select
-              id="mic-select"
-              value={selectedMicId}
-              onChange={(e) => setSelectedMicId(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "8px 12px",
-                background: "rgba(0, 0, 0, 0.5)",
-                color: "#fff",
-                border: "1px solid rgba(255, 255, 255, 0.2)",
-                borderRadius: "6px",
-                fontSize: "14px",
-                outline: "none",
-                transition: "border-color 0.2s ease",
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = "#3b82f6";
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = "rgba(255, 255, 255, 0.2)";
-              }}
-            >
-              <option value="">Default Microphone</option>
-              {audioInputs.map((device) => (
-                <option key={device.deviceId} value={device.deviceId}>
-                  {device.label || `Microphone (${device.deviceId.slice(-4)})`}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Speaker selection */}
-          <div style={{ marginBottom: "16px" }}>
-            <label
-              htmlFor="speaker-select"
-              style={{
-                display: "block",
-                marginBottom: "6px",
-                color: "#9ca3af",
-                fontSize: "12px",
-                fontWeight: "500",
-              }}
-            >
-              Speaker:
-            </label>
-            <select
-              id="speaker-select"
-              value={selectedSpeakerId}
-              onChange={(e) => setSelectedSpeakerId(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "8px 12px",
-                background: "rgba(0, 0, 0, 0.5)",
-                color: "#fff",
-                border: "1px solid rgba(255, 255, 255, 0.2)",
-                borderRadius: "6px",
-                fontSize: "14px",
-                outline: "none",
-                transition: "border-color 0.2s ease",
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = "#3b82f6";
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = "rgba(255, 255, 255, 0.2)";
-              }}
-            >
-              <option value="">Default Speaker</option>
-              {audioOutputs.map((device) => (
-                <option key={device.deviceId} value={device.deviceId}>
-                  {device.label || `Speaker (${device.deviceId.slice(-4)})`}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Render an <audio> element for each remote stream */}
-        {Array.from(voiceChat.peerConnections.entries()).map(
-          ([username, { stream }]) =>
-            stream ? (
-              <audio
-                key={username}
-                autoPlay
-                hidden
-                muted={voiceChat.isDeafened}
-                ref={(el) => {
-                  if (el && el.srcObject !== stream) {
-                    el.srcObject = stream;
-                  }
-                }}
-              />
-            ) : null
-        )}
-      </div>
-
-      {/* Logs Modal */}
-      {logsModalOpen && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.8)",
-            backdropFilter: "blur(4px)",
-            zIndex: 1000,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "20px",
-          }}
-        >
-          <button
-            onClick={() => setLogsModalOpen(false)}
-            style={{
-              position: "absolute",
-              top: 20,
-              right: 30,
-              zIndex: 10,
-              background: "none",
-              border: "none",
-              color: "#9ca3af",
-              fontSize: "24px",
-              cursor: "pointer",
-              padding: "4px",
-              borderRadius: "4px",
-              transition: "all 0.2s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = "#fff";
-              e.currentTarget.style.backgroundColor =
-                "rgba(255, 255, 255, 0.1)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = "#9ca3af";
-              e.currentTarget.style.backgroundColor = "transparent";
-            }}
-          >
-            ✕
-          </button>
-          <LogsViewer
-            logs={voiceChat.logs}
-            wsLogs={voiceChat.wsLogs}
-            maxHeight="400px"
-            modal={true}
-          />
-        </div>
+    <MainLayout>
+      {voiceChat.username && (
+        <UserInfoBar
+          username={voiceChat.username}
+          isMuted={voiceChat.isMuted}
+          isDeafened={voiceChat.isDeafened}
+          onToggleMute={voiceChat.toggleMute}
+          onToggleDeafen={voiceChat.toggleDeafen}
+        />
       )}
-    </div>
+
+      <AppHeader
+        wsLatency={onTentEventWsLatency}
+        isOpen={onTentEventIsOpen}
+        onViewLogs={() => setLogsModalOpen(true)}
+      />
+
+      <HordesList
+        hordes={hordes_q.data?.data || []}
+        currentTentId={voiceChat.currentTentId}
+        tentUsersByTent={tentUsersByTent}
+        onTentClick={handleTentClick}
+        voiceChat={voiceChat}
+      />
+
+      {voiceChat.isConnected && (
+        <ConnectionStatus
+          currentTentId={voiceChat.currentTentId!}
+          onLeaveTent={voiceChat.leaveTent}
+        />
+      )}
+
+      <DeviceSettings
+        audioInputs={audioInputs}
+        audioOutputs={audioOutputs}
+        selectedMicId={selectedMicId}
+        selectedSpeakerId={selectedSpeakerId}
+        onMicChange={setSelectedMicId}
+        onSpeakerChange={setSelectedSpeakerId}
+      />
+
+      {/* Render an <audio> element for each remote stream */}
+      {Array.from(voiceChat.peerConnections.entries()).map(
+        ([username, { stream }]) =>
+          stream ? (
+            <audio
+              key={username}
+              autoPlay
+              hidden
+              muted={voiceChat.isDeafened}
+              ref={(el) => {
+                if (el && el.srcObject !== stream) {
+                  el.srcObject = stream;
+                }
+              }}
+            />
+          ) : null
+      )}
+
+      <LogsModal
+        isOpen={logsModalOpen}
+        onClose={() => setLogsModalOpen(false)}
+        logs={voiceChat.logs}
+        wsLogs={voiceChat.wsLogs}
+      />
+    </MainLayout>
   );
 }
