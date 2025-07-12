@@ -12,11 +12,10 @@ export function useLogs() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
   const addLog = useCallback((message: string, level: LogLevel = "info") => {
-    setLogs((prev) => [
-      ...prev,
-      { message, level, timestamp: Date.now() },
-    ]);
+    setLogs((prev) => [...prev, { message, level, timestamp: Date.now() }]);
   }, []);
 
-  return { logs, addLog };
-} 
+  const clearLogs = useCallback(() => setLogs([]), []);
+
+  return { logs, addLog, clearLogs };
+}
