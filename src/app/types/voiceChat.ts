@@ -7,12 +7,14 @@ export interface VoiceChatState {
   username: string | null;
   isMuted: boolean;
   isDeafened: boolean;
+  isScreenSharing: boolean;
   wsLatency: number | null;
   logs: LogEntry[];
   wsLogs: LogEntry[];
   peerConnections: Map<string, { peerConnection: RTCPeerConnection; stream: MediaStream | null }>;
   toggleMute: () => void;
   toggleDeafen: () => void;
+  toggleScreenShare: () => Promise<void>;
   leaveTent: () => Promise<void>;
   joinTent: (tentId: number) => Promise<(() => void) | undefined>;
 } 

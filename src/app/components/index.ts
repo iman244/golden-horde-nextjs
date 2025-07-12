@@ -6,6 +6,7 @@ export { AppHeader } from './Header/AppHeader';
 
 // User components
 export { UserInfoBar } from './UserInfo/UserInfoBar';
+export { ScreenShareButton } from './UserInfo/ScreenShareButton';
 
 // Connection components
 export { ConnectionStatus } from './Connection/ConnectionStatus';
@@ -28,4 +29,6 @@ export { LogsModal } from './Logs/LogsModal';
 // Existing components
 export { LogsViewer } from './LogsViewer';
 export { PeerConnectionStatus } from './PeerConnectionStatus';
-export { default as AuthBackButton } from './AuthBackButton'; 
+export { PeerConnectionInfoModal } from './PeerConnectionInfoModal';
+export { default as AuthBackButton } from './AuthBackButton';
+export { PeerConnectionStatsModal } from "./PeerConnectionStatsModal"; 

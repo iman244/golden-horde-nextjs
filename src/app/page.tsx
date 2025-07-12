@@ -127,8 +127,10 @@ export default function Home() {
           username={voiceChat.username}
           isMuted={voiceChat.isMuted}
           isDeafened={voiceChat.isDeafened}
+          isScreenSharing={voiceChat.isScreenSharing}
           onToggleMute={voiceChat.toggleMute}
           onToggleDeafen={voiceChat.toggleDeafen}
+          onToggleScreenShare={voiceChat.toggleScreenShare}
         />
       )}
 
@@ -186,6 +188,7 @@ export default function Home() {
         logs={voiceChat.logs}
         wsLogs={voiceChat.wsLogs}
       />
+
     </MainLayout>
   );
 }

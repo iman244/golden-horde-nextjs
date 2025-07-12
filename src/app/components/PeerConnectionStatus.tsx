@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FaTimesCircle, FaExchangeAlt, FaRandom, FaWifi, FaEllipsisV } from "react-icons/fa";
-import { PeerConnectionInfoModal } from './PeerConnectionInfoModal';
+import { FaTimesCircle, FaExchangeAlt, FaRandom, FaWifi } from "react-icons/fa";
 
 interface PeerConnectionStatusProps {
   user: string;
@@ -24,7 +23,7 @@ function formatBitrate(bits?: number) {
 export function PeerConnectionStatus({ user, peerConnection }: PeerConnectionStatusProps) {
   const [connectionStats, setConnectionStats] = useState<ConnectionStats>({});
 
-  const [showInfoModal, setShowInfoModal] = useState(false);
+//   const [showInfoModal, setShowInfoModal] = useState(false);
 
 //   useEffect(()=>{
 //     const getConfiguration = peerConnection?.getConfiguration()
@@ -136,13 +135,13 @@ export function PeerConnectionStatus({ user, peerConnection }: PeerConnectionSta
         >
           {peerConnection.signalingState}
         </span>
-        <button
+        {/* <button
           className="ml-auto p-1 rounded hover:bg-gray-700 transition"
           onClick={() => setShowInfoModal(true)}
           title="Show PeerConnection Info"
         >
           <FaEllipsisV />
-        </button>
+        </button> */}
       </div>
       {/* Bottom row: audio stats */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
@@ -171,11 +170,11 @@ export function PeerConnectionStatus({ user, peerConnection }: PeerConnectionSta
           <FaWifi style={{ color: "#a3e635" }} /> {connectionStats.jitter !== undefined ? `${(connectionStats.jitter * 1000).toFixed(1)}ms` : "N/A"}
         </span> */}
       </div>
-      <PeerConnectionInfoModal
+      {/* <PeerConnectionStatsModal
         open={showInfoModal}
         onClose={() => setShowInfoModal(false)}
         peerConnection={peerConnection}
-      />
+      /> */}
     </div>
   );
 } 

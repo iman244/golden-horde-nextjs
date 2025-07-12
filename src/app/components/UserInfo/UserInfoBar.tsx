@@ -1,21 +1,26 @@
 import React from "react";
 import { FaMicrophone, FaMicrophoneSlash } from "react-icons/fa";
 import { LuHeadphoneOff, LuHeadphones } from "react-icons/lu";
+import { ScreenShareButton } from "./ScreenShareButton";
 
 interface UserInfoBarProps {
   username: string;
   isMuted: boolean;
   isDeafened: boolean;
+  isScreenSharing: boolean;
   onToggleMute: () => void;
   onToggleDeafen: () => void;
+  onToggleScreenShare: () => Promise<void>;
 }
 
 export function UserInfoBar({ 
   username, 
   isMuted, 
   isDeafened, 
+  isScreenSharing,
   onToggleMute, 
-  onToggleDeafen 
+  onToggleDeafen,
+  onToggleScreenShare
 }: UserInfoBarProps) {
   return (
     <div
@@ -95,6 +100,11 @@ export function UserInfoBar({
           {isDeafened ? "Undeafen" : "Deafen"}
         </span>
       </button>
+      <ScreenShareButton
+        isScreenSharing={isScreenSharing}
+        onToggleScreenShare={onToggleScreenShare}
+        disabled={!isScreenSharing && isDeafened}
+      />
     </div>
   );
 } 

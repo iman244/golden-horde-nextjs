@@ -11,9 +11,10 @@ export function useVoiceChat(token: string | null) {
   const [isConnected, setIsConnected] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   const [otherUsers, setOtherUsers] = useState<string[]>([]);
-
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const toggleScreenShare = async () => setIsScreenSharing((pre) => !pre);
   const {
-    stream, // <-- add this
+    stream,
     error: mediaError,
     loading: mediaLoading,
     getMedia,
@@ -24,7 +25,7 @@ export function useVoiceChat(token: string | null) {
   const [isMuted, setIsMuted] = useState(false);
   const toggleMute = useCallback(() => {
     if (stream) {
-      stream.getAudioTracks().forEach(track => {
+      stream.getAudioTracks().forEach((track) => {
         track.enabled = !track.enabled;
       });
       // After toggling, update isMuted state based on first track
@@ -37,13 +38,13 @@ export function useVoiceChat(token: string | null) {
   const [isDeafened, setIsDeafened] = useState(false);
   const wasMutedBeforeDeafen = useRef(false);
   const toggleDeafen = useCallback(() => {
-    setIsDeafened(d => {
+    setIsDeafened((d) => {
       const next = !d;
       if (next) {
         // If deafen is being activated, also mute mic
         if (stream) {
           wasMutedBeforeDeafen.current = isMuted;
-          stream.getAudioTracks().forEach(track => {
+          stream.getAudioTracks().forEach((track) => {
             if (track.enabled) track.enabled = false;
           });
           // Update isMuted state
@@ -53,7 +54,7 @@ export function useVoiceChat(token: string | null) {
       } else {
         // If deafen is being deactivated, unmute if user was not muted before deafen
         if (stream && !wasMutedBeforeDeafen.current) {
-          stream.getAudioTracks().forEach(track => {
+          stream.getAudioTracks().forEach((track) => {
             if (!track.enabled) track.enabled = true;
           });
           // Update isMuted state
@@ -65,16 +66,22 @@ export function useVoiceChat(token: string | null) {
     });
   }, [stream, isMuted]);
 
-  const getVoiceChatUrl = useCallback((id: string | number) => {
-    if (!token) return "";
-    return `wss://${process.env.NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN}/ws/voice_chat/${id}/?token=${encodeURIComponent(token)}`;
-  }, [token]);
+  const getVoiceChatUrl = useCallback(
+    (id: string | number) => {
+      if (!token) return "";
+      return `wss://${
+        process.env.NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN
+      }/ws/voice_chat/${id}/?token=${encodeURIComponent(token)}`;
+    },
+    [token]
+  );
 
   // Initialize signaling when tentId changes
-  const { wsLogs, sendSignal, onSignal, wsLatency } = useSignaling<VoiceChatSignalingMessage>({
-    channelId: currentTentId,
-    getUrl: getVoiceChatUrl,
-  });
+  const { wsLogs, sendSignal, onSignal, wsLatency } =
+    useSignaling<VoiceChatSignalingMessage>({
+      channelId: currentTentId,
+      getUrl: getVoiceChatUrl,
+    });
 
   // ICE candidate handler to be passed to useWebRTC
   const handleIceCandidate = useCallback(
@@ -111,62 +118,97 @@ export function useVoiceChat(token: string | null) {
   } = useWebRTC(handleIceCandidate);
 
   // Helper to handle connect_info message
-  const handleConnectInfo = useCallback((msg: Extract<VoiceChatSignalingMessage, { type: "connect_info" }>, localStream: MediaStream | null) => {
-    setUsername(msg.username);
-    setOtherUsers(Array.isArray(msg.other_users) ? msg.other_users : []);
-    addLog(`Your user name: ${msg.username}`);
-    addLog(`Other users in tent: ${(msg.other_users || []).join(", ")}`);
-    console.log("peerDataRef", peerDataRef)
-    // For each other user, create a peer connection and send offer
-    if (msg.username) {
-      msg.other_users.forEach((target_user) => {
-        if (target_user !== msg.username) {
-          let peerConnEntry = peerDataRef.current.get(target_user);
-          if (!peerConnEntry) {
-            createPeerConnection({
-              username: msg.username,
-              target_user,
-            });
-            if (localStream) {
-              addTracksToPeer(localStream, target_user);
-            }
-            peerConnEntry = peerDataRef.current.get(target_user);
-          }
-          if (peerConnEntry) {
-            console.log("we are creating offer")
-            peerConnEntry.peerConnection.createOffer().then((offer) => {
-              peerConnEntry!.peerConnection.setLocalDescription(offer).then(() => {
-                sendSignal({
-                  type: "offer",
-                  sdp: offer.sdp!,
-                  username: msg.username,
-                  target_user,
-                });
-                addLog(`Offer sent to ${target_user}`);
-              }).catch(err => {
-                console.log("we are setLocalDescription", err)
+  const handleConnectInfo = useCallback(
+    (
+      msg: Extract<VoiceChatSignalingMessage, { type: "connect_info" }>,
+      localStream: MediaStream | null
+    ) => {
+      setUsername(msg.username);
+      setOtherUsers(Array.isArray(msg.other_users) ? msg.other_users : []);
+      addLog(`Your user name: ${msg.username}`);
+      addLog(`Other users in tent: ${(msg.other_users || []).join(", ")}`);
+      console.log("peerDataRef", peerDataRef);
+      // For each other user, create a peer connection and send offer
+      if (msg.username) {
+        msg.other_users.forEach((target_user) => {
+          if (target_user !== msg.username) {
+            let peerConnEntry = peerDataRef.current.get(target_user);
+            if (!peerConnEntry) {
+              createPeerConnection({
+                username: msg.username,
+                target_user,
               });
-            }).catch(err => {
-                console.log("we are in createOffer error", err)
-            });
+              if (localStream) {
+                addTracksToPeer(localStream, target_user);
+              }
+              peerConnEntry = peerDataRef.current.get(target_user);
+            }
+            if (peerConnEntry) {
+              console.log("we are creating offer");
+              peerConnEntry.peerConnection
+                .createOffer()
+                .then((offer) => {
+                  peerConnEntry!.peerConnection
+                    .setLocalDescription(offer)
+                    .then(() => {
+                      sendSignal({
+                        type: "offer",
+                        sdp: offer.sdp!,
+                        username: msg.username,
+                        target_user,
+                      });
+                      addLog(`Offer sent to ${target_user}`);
+                    })
+                    .catch((err) => {
+                      console.log("we are setLocalDescription", err);
+                    });
+                })
+                .catch((err) => {
+                  console.log("we are in createOffer error", err);
+                });
+            }
           }
-        }
-      });
-    }
-  }, [setUsername, setOtherUsers, addLog, createPeerConnection, addTracksToPeer, sendSignal]);
+        });
+      }
+    },
+    [
+      setUsername,
+      setOtherUsers,
+      addLog,
+      createPeerConnection,
+      addTracksToPeer,
+      sendSignal,
+    ]
+  );
 
   // Helper to handle user_join and user_left
-  const handleUserJoinLeave = useCallback((msg: Extract<VoiceChatSignalingMessage, { type: "user_join" | "user_left" }>) => {
-    // You can add any local state update or logging here if needed
-    addLog(`User ${msg.username} ${msg.type === "user_join" ? "joined" : "left"} tent ${msg.tent_id}`);
-    // If you want to close peer connection on user_left for current tent, do it here
-    if (msg.type === "user_left" && currentTentId !== null && msg.tent_id === String(currentTentId)) {
-      const entry = peerConnections.get(msg.username);
-      if (entry && entry.peerConnection) {
-        entry.peerConnection.close();
+  const handleUserJoinLeave = useCallback(
+    (
+      msg: Extract<
+        VoiceChatSignalingMessage,
+        { type: "user_join" | "user_left" }
+      >
+    ) => {
+      // You can add any local state update or logging here if needed
+      addLog(
+        `User ${msg.username} ${
+          msg.type === "user_join" ? "joined" : "left"
+        } tent ${msg.tent_id}`
+      );
+      // If you want to close peer connection on user_left for current tent, do it here
+      if (
+        msg.type === "user_left" &&
+        currentTentId !== null &&
+        msg.tent_id === String(currentTentId)
+      ) {
+        const entry = peerConnections.get(msg.username);
+        if (entry && entry.peerConnection) {
+          entry.peerConnection.close();
+        }
       }
-    }
-  }, [addLog, currentTentId, peerConnections]);
+    },
+    [addLog, currentTentId, peerConnections]
+  );
 
   // Join a specific tent
   const joinTent = useCallback(
@@ -248,23 +290,25 @@ export function useVoiceChat(token: string | null) {
                     addLog(
                       "Answer created. Setting local description and sending to server."
                     );
-                    return peerConnEntry!.peerConnection.setLocalDescription(answer).then(() => {
-                      if (typeof answer.sdp === "string") {
-                        sendSignal({
-                          type: "answer",
-                          sdp: answer.sdp,
-                          username: msg.target_user,
-                          target_user,
-                        });
-                        addLog("Answer sent to server.");
-                      } else {
-                        const errMsg = `Error: answer.sdp is not a string (value: ${String(
-                          answer.sdp
-                        )})`;
-                        addLog(errMsg);
-                        throw new Error(errMsg);
-                      }
-                    });
+                    return peerConnEntry!.peerConnection
+                      .setLocalDescription(answer)
+                      .then(() => {
+                        if (typeof answer.sdp === "string") {
+                          sendSignal({
+                            type: "answer",
+                            sdp: answer.sdp,
+                            username: msg.target_user,
+                            target_user,
+                          });
+                          addLog("Answer sent to server.");
+                        } else {
+                          const errMsg = `Error: answer.sdp is not a string (value: ${String(
+                            answer.sdp
+                          )})`;
+                          addLog(errMsg);
+                          throw new Error(errMsg);
+                        }
+                      });
                   })
                   .catch((err: Error) => {
                     addLog("Error during answer creation: " + err);
@@ -460,5 +504,7 @@ export function useVoiceChat(token: string | null) {
     toggleMute,
     isDeafened,
     toggleDeafen,
+    isScreenSharing,
+    toggleScreenShare,
   };
 }
