@@ -1,20 +1,34 @@
+"use client"
 import { useQuery } from "@tanstack/react-query";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import type { Horde } from "../data.types";
+import { useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
 
 export function useHordesQuery() {
-  return useQuery({
+  const { token, logout, authStatus } = useAuth();
+  const q = useQuery({
     queryKey: ["hordes"],
     queryFn: async () =>
       await axios<Horde[]>(
         `https://${process.env.NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN}/api/hordes/`,
         {
           headers: {
-            Authorization: "Token " + localStorage.getItem("token"),
+            Authorization: "Token " + token,
           },
         }
       ),
+    enabled: authStatus == "authenticated",
     refetchInterval: false,
     refetchOnWindowFocus: false,
   });
-} 
+
+  useEffect(() => {
+    const err = q.error as AxiosError | undefined;
+    if (err && (err.response?.status === 401 || err.response?.status === 403)) {
+      logout();
+    }
+  }, [q.error, logout]);
+
+  return q;
+}
