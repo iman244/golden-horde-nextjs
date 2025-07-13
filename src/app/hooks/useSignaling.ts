@@ -17,7 +17,6 @@ export function useSignaling<T extends MessageWithType>(
   const wsRef = useRef<WebSocket | null>(null);
   //   const [wsLogs, setWsLogs] = useState<LogEntry[]>([]);
   const { logs, addLog, clearLogs } = useLogs();
-  const [isOpen, setIsOpen] = useState(false);
   const [wsLatency, setWsLatency] = useState<number | null>(null);
   const signalCallbacks = useRef<((msg: T) => void)[]>([]);
   const authRejectedCallbacks = useRef<(() => void)[]>([]);
@@ -29,10 +28,10 @@ export function useSignaling<T extends MessageWithType>(
       const ws = wsRef.current;
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(msg));
-        addLog(`[WS] Sent: ${JSON.stringify(msg)}`);
+        addLog(`WebSocket: Sent message (type: ${msg.type})`);
       } else {
         addLog(
-          `[WS] Tried to send but WebSocket not open: ${JSON.stringify(msg)}`,
+          `WebSocket: Attempted to send message (type: ${msg.type}) but connection is not open`,
           "warning"
         );
       }
@@ -80,11 +79,10 @@ export function useSignaling<T extends MessageWithType>(
   useEffect(() => {
     // Close existing connection if any
     if (wsRef.current) {
-      addLog("[WS] Closing existing connection");
+      addLog("WebSocket: Closing previous connection");
       wsRef.current.close();
-      setWsReadyState(wsRef.current.readyState); // Set to CLOSING (2)
+      setWsReadyState(wsRef.current.readyState);
       wsRef.current = null;
-      setIsOpen(false);
     }
 
     // Determine the WebSocket URL
@@ -96,32 +94,30 @@ export function useSignaling<T extends MessageWithType>(
     }
 
     if (!wsUrl) {
-      addLog("[WS] No valid WebSocket URL provided, not connecting");
+      addLog(
+        "WebSocket: No valid signaling server URL provided, not connecting"
+      );
       setWsReadyState(null);
       return;
     }
-
+    clearLogs()
     const ws = new WebSocket(wsUrl);
-    addLog(`[WS] Connecting: ${wsUrl}`);
+    addLog("WebSocket: Connecting to signaling server");
     wsRef.current = ws;
-    setWsReadyState(ws.readyState); // Should be CONNECTING (0)
+    setWsReadyState(ws.readyState);
 
     let pingInterval: ReturnType<typeof setInterval> | null = null;
     let lastPingTimestamp: number | null = null;
 
     ws.onopen = () => {
-      setIsOpen(true);
-      setWsReadyState(ws.readyState); // Should be OPEN (1)
-      addLog("[WS] Connection opened");
-      addLog(`[WS] URL: ${ws.url}`);
-      addLog(`[WS] Protocol: ${ws.protocol}`);
-      addLog(`[WS] ReadyState: ${ws.readyState}`);
+      setWsReadyState(ws.readyState);
+      addLog("WebSocket: Connection established");
 
       function ping() {
         lastPingTimestamp = Date.now();
         ws.send(JSON.stringify({ type: "ping", ts: lastPingTimestamp }));
+        // No ping log
       }
-      // Start ping interval
       pingInterval = setInterval(() => {
         ping();
       }, 5000);
@@ -129,27 +125,25 @@ export function useSignaling<T extends MessageWithType>(
     };
 
     ws.onclose = (event) => {
-      setIsOpen(false);
-      setWsReadyState(ws.readyState); // Should be CLOSED (3)
-      addLog(
-        `[WS] Connection closed (code: ${event.code}, reason: ${event.reason})`,
-        "warning"
-      );
-      // Handle authentication/token rejection (code 4001 or reason 'auth_failed')
-      // See RFC 6455: https://datatracker.ietf.org/doc/html/rfc6455#section-7.4.2
-      console.log("event onclose", event);
+      setWsReadyState(ws.readyState);
+      if (event.code === 4001 || event.reason === "auth_failed") {
+        addLog("WebSocket: Authentication failed", "warning");
+      } else {
+        addLog(
+          `WebSocket: Disconnected (code: ${event.code}, reason: ${
+            event.reason || "no reason provided"
+          })`,
+          "warning"
+        );
+      }
       authRejectedCallbacks.current.forEach((cb) => cb());
       if (pingInterval) clearInterval(pingInterval);
-      clearLogs()
+      clearLogs();
     };
 
-    ws.onerror = (event) => {
-      setWsReadyState(ws.readyState); // Could be CLOSING (2) or CLOSED (3)
-      addLog(
-        `[WS] Error event. readyState: ${ws.readyState}, url: ${ws.url}`,
-        "error"
-      );
-      addLog(JSON.stringify(event, null, 4), "error");
+    ws.onerror = () => {
+      setWsReadyState(ws.readyState);
+      addLog("WebSocket: Error occurred", "error");
     };
 
     ws.onmessage = (event) => {
@@ -161,19 +155,20 @@ export function useSignaling<T extends MessageWithType>(
           lastPingTimestamp
         ) {
           setWsLatency(Date.now() - msg.ts);
+          // No pong log
         }
         if (isMessageWithType(msg) && msg.type !== "pong") {
-          addLog(`[WS] Received: ${event.data}`);
+          addLog(`WebSocket: Received message (type: ${msg.type})`);
         }
         signalCallbacks.current.forEach((cb) => cb(msg));
       } catch (error) {
         const errorDetails =
           error instanceof Error ? error.message : String(error);
         addLog(
-          `[WS] Failed to parse signaling message: ${errorDetails}`,
+          `WebSocket: Failed to parse incoming message: ${errorDetails}`,
           "error"
         );
-        addLog(`[WS] Raw message data: ${event.data}`, "error");
+        addLog(`WebSocket: Raw message data: ${event.data}`, "error");
       }
     };
 
@@ -193,11 +188,11 @@ export function useSignaling<T extends MessageWithType>(
   // Function to close the WebSocket and update ready state
   const closeWebSocket = useCallback(() => {
     if (wsRef.current) {
-      addLog("[WS] Manual closeWebSocket called");
+      addLog("WebSocket: Manual disconnect initiated");
       wsRef.current.close();
-      setWsReadyState(wsRef.current.readyState); // Set to CLOSING (2)
+      setWsReadyState(wsRef.current.readyState);
       wsRef.current = null;
-      setIsOpen(false);
+
     }
   }, [addLog]);
 
@@ -205,7 +200,6 @@ export function useSignaling<T extends MessageWithType>(
     logs,
     sendSignal,
     onSignal,
-    isOpen,
     wsLatency,
     onAuthRejected,
     wsReadyState,
