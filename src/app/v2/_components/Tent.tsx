@@ -1,14 +1,21 @@
 import { Tent as TentType } from "@/app/data.types";
 import React, { FC, useMemo } from "react";
 import { useTentParticipants } from "../_context/TentParticipantsContext";
-import { useTentCommunication } from "../_context/TentCommunicationContext";
+import { useTentRTCContext } from "../_context/TentRTCContext";
+import LogsModal from "./LogsModal";
+import TentJoinLeaveButton from "./TentJoinLeaveButton";
+import clsx from "clsx";
+import TentInfo from "./TentInfo";
+import TentRTT from "./TentRTT";
+import { getTentButtonLabel } from "../_utils";
 
 const Tent: FC<{ tent: TentType }> = ({ tent }) => {
   const { getParticipantsByTentId } = useTentParticipants();
-  const { joinTent, leaveTent, wsLatency, status } = useTentCommunication();
+  const { joinTent, leaveTent, status, logs, wsLogs } =
+    useTentRTCContext();
   const tentStatus = useMemo(() => status(tent.id), [status, tent.id]);
+
   const onTentClick = () => {
-    console.log("tentStatus", tentStatus);
     if (tentStatus == "N/A" || tentStatus == "Closed") {
       joinTent(tent.id);
     } else if (tentStatus == "Open") {
@@ -16,61 +23,37 @@ const Tent: FC<{ tent: TentType }> = ({ tent }) => {
     }
   };
 
-  function getTentButtonLabel(status: string) {
-    switch (status) {
-      case "Open":
-        return "Leave";
-      case "Connecting":
-        return "Joining";
-      case "Closing":
-        return "Leaving";
-      default:
-        return "Join";
-    }
-  }
-
   return (
     <div
-      className={`v2-tent-card${
-        tentStatus == "Open" ? " v2-tent-card-connected" : ""
-      }`}
+      className={clsx(
+        "v2-tent-card",
+        tentStatus == "Open" && "v2-tent-card-connected"
+      )}
     >
       <div
-        className={`v2-tent-header${
-          tentStatus == "Open" ? " v2-tent-header-connected" : ""
-        }`}
+        className={clsx(
+          "v2-tent-header",
+          tentStatus == "Open" && "v2-tent-header-connected"
+        )}
       >
-        <div className="v2-tent-info">
-          <span className="v2-tent-emoji">⛺</span>
-          <span className="v2-tent-name">{tent.name}</span>
+        <TentInfo tent={tent} />
+        <div className="v2-tent-actions">
           {tentStatus == "Open" && (
-            <span className="v2-tent-status">✓ Connected</span>
+            <LogsModal logs={{ system: logs, ws: wsLogs }} />
           )}
+          <TentJoinLeaveButton
+            onClick={onTentClick}
+            className={clsx(
+              "v2-tent-btn",
+              tentStatus == "Open" ? "v2-tent-btn-leave" : "v2-tent-btn-join"
+            )}
+          >
+            {getTentButtonLabel(tentStatus)}
+          </TentJoinLeaveButton>
         </div>
-        <button
-          onClick={onTentClick}
-          className={`v2-tent-btn${
-            tentStatus == "Open" ? " v2-tent-btn-leave" : " v2-tent-btn-join"
-          }`}
-          onMouseEnter={(e) => {
-            e.currentTarget.classList.add("v2-tent-btn-hover");
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.classList.remove("v2-tent-btn-hover");
-          }}
-        >
-          {getTentButtonLabel(tentStatus)}
-        </button>
       </div>
       {/* WebSocket RTT */}
-
-      {tentStatus == "Open" && (
-        <div className="v2-tent-rtt">
-          WebSocket State: {tentStatus}
-          <br />
-          WebSocket RTT: {wsLatency}
-        </div>
-      )}
+      <TentRTT tent={tent} />
 
       {/* Users in Tent */}
       <div>

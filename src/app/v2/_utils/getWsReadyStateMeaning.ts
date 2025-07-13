@@ -1,4 +1,4 @@
-export type getWsReadyStateMeaningReturnType =
+export type WebSocketStatusType =
   | "Connecting"
   | "Open"
   | "Closed"
@@ -6,9 +6,9 @@ export type getWsReadyStateMeaningReturnType =
   | "N/A";
 
 // Returns a human-readable meaning for WebSocket readyState
-export function getWsReadyStateMeaning(
+export function getWebSocketStatus(
   state: number | null
-): getWsReadyStateMeaningReturnType {
+): WebSocketStatusType {
   switch (state) {
     case 0:
       return "Connecting";

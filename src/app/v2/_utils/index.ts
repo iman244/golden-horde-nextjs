@@ -1,6 +1,17 @@
-import { getWsReadyStateMeaning, getWsReadyStateMeaningReturnType } from "./getWsReadyStateMeaning";
+export { getWebSocketStatus } from "./getWsReadyStateMeaning";
+export type { WebSocketStatusType } from "./getWsReadyStateMeaning";
 
-export { getWsReadyStateMeaning };
-export type {
-    getWsReadyStateMeaningReturnType
+export { createPeerConnection } from "./createPeerConnection";
+
+export function getTentButtonLabel(status: string) {
+  switch (status) {
+    case "Open":
+      return "Leave";
+    case "Connecting":
+      return "Joining";
+    case "Closing":
+      return "Leaving";
+    default:
+      return "Join";
+  }
 }

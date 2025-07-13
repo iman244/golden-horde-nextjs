@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import Loading from "../loading";
 import RedirectUnAuthorizedUserCard from "./_components/RedirectUnAuthorizedUserCard";
 import TentParticipantsProvider from "./_context/TentParticipantsContext";
-import TentCommunicationProvider from "./_context/TentCommunicationContext";
+import TentRTCProvider from "./_context/TentRTCContext";
 
 const V2Layout: FC<{ children: ReactNode }> = ({ children }) => {
   const { authStatus } = useAuth();
@@ -14,7 +14,7 @@ const V2Layout: FC<{ children: ReactNode }> = ({ children }) => {
 
   return (
     <TentParticipantsProvider>
-      <TentCommunicationProvider>{children}</TentCommunicationProvider>
+      <TentRTCProvider>{children}</TentRTCProvider>
     </TentParticipantsProvider>
   );
 };

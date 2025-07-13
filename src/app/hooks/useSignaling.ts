@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { LogEntry, LogLevel } from "./useLogs";
+import { useLogs } from "./useLogs";
 
 // Generic options for useSignaling
 interface UseSignalingOptions {
@@ -15,18 +15,13 @@ export function useSignaling<T extends MessageWithType>(
 ) {
   const { url, channelId, getUrl } = options;
   const wsRef = useRef<WebSocket | null>(null);
-  const [wsLogs, setWsLogs] = useState<LogEntry[]>([]);
+  //   const [wsLogs, setWsLogs] = useState<LogEntry[]>([]);
+  const { logs, addLog, clearLogs } = useLogs();
   const [isOpen, setIsOpen] = useState(false);
   const [wsLatency, setWsLatency] = useState<number | null>(null);
   const signalCallbacks = useRef<((msg: T) => void)[]>([]);
   const authRejectedCallbacks = useRef<(() => void)[]>([]);
   const [wsReadyState, setWsReadyState] = useState<number | null>(null);
-
-  const addWsLog = useCallback(
-    (message: string, level: LogLevel = "info") =>
-      setWsLogs((logs) => [...logs, { message, level, timestamp: Date.now() }]),
-    []
-  );
 
   // Send a signaling message
   const sendSignal = useCallback(
@@ -34,15 +29,15 @@ export function useSignaling<T extends MessageWithType>(
       const ws = wsRef.current;
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(msg));
-        addWsLog(`[WS] Sent: ${JSON.stringify(msg)}`);
+        addLog(`[WS] Sent: ${JSON.stringify(msg)}`);
       } else {
-        addWsLog(
+        addLog(
           `[WS] Tried to send but WebSocket not open: ${JSON.stringify(msg)}`,
           "warning"
         );
       }
     },
-    [addWsLog]
+    [addLog]
   );
 
   // Register a callback for incoming signaling messages
@@ -85,7 +80,7 @@ export function useSignaling<T extends MessageWithType>(
   useEffect(() => {
     // Close existing connection if any
     if (wsRef.current) {
-      addWsLog("[WS] Closing existing connection");
+      addLog("[WS] Closing existing connection");
       wsRef.current.close();
       setWsReadyState(wsRef.current.readyState); // Set to CLOSING (2)
       wsRef.current = null;
@@ -101,14 +96,13 @@ export function useSignaling<T extends MessageWithType>(
     }
 
     if (!wsUrl) {
-      addWsLog("[WS] No valid WebSocket URL provided, not connecting");
+      addLog("[WS] No valid WebSocket URL provided, not connecting");
       setWsReadyState(null);
       return;
     }
 
-    addWsLog(`[WS] Connecting: ${wsUrl}`);
-
     const ws = new WebSocket(wsUrl);
+    addLog(`[WS] Connecting: ${wsUrl}`);
     wsRef.current = ws;
     setWsReadyState(ws.readyState); // Should be CONNECTING (0)
 
@@ -118,10 +112,10 @@ export function useSignaling<T extends MessageWithType>(
     ws.onopen = () => {
       setIsOpen(true);
       setWsReadyState(ws.readyState); // Should be OPEN (1)
-      addWsLog("[WS] Connection opened");
-      addWsLog(`[WS] URL: ${ws.url}`);
-      addWsLog(`[WS] Protocol: ${ws.protocol}`);
-      addWsLog(`[WS] ReadyState: ${ws.readyState}`);
+      addLog("[WS] Connection opened");
+      addLog(`[WS] URL: ${ws.url}`);
+      addLog(`[WS] Protocol: ${ws.protocol}`);
+      addLog(`[WS] ReadyState: ${ws.readyState}`);
 
       function ping() {
         lastPingTimestamp = Date.now();
@@ -137,7 +131,7 @@ export function useSignaling<T extends MessageWithType>(
     ws.onclose = (event) => {
       setIsOpen(false);
       setWsReadyState(ws.readyState); // Should be CLOSED (3)
-      addWsLog(
+      addLog(
         `[WS] Connection closed (code: ${event.code}, reason: ${event.reason})`,
         "warning"
       );
@@ -146,15 +140,16 @@ export function useSignaling<T extends MessageWithType>(
       console.log("event onclose", event);
       authRejectedCallbacks.current.forEach((cb) => cb());
       if (pingInterval) clearInterval(pingInterval);
+      clearLogs()
     };
 
     ws.onerror = (event) => {
       setWsReadyState(ws.readyState); // Could be CLOSING (2) or CLOSED (3)
-      addWsLog(
+      addLog(
         `[WS] Error event. readyState: ${ws.readyState}, url: ${ws.url}`,
         "error"
       );
-      addWsLog(JSON.stringify(event, null, 4), "error");
+      addLog(JSON.stringify(event, null, 4), "error");
     };
 
     ws.onmessage = (event) => {
@@ -168,23 +163,23 @@ export function useSignaling<T extends MessageWithType>(
           setWsLatency(Date.now() - msg.ts);
         }
         if (isMessageWithType(msg) && msg.type !== "pong") {
-          addWsLog(`[WS] Received: ${event.data}`);
+          addLog(`[WS] Received: ${event.data}`);
         }
         signalCallbacks.current.forEach((cb) => cb(msg));
       } catch (error) {
         const errorDetails =
           error instanceof Error ? error.message : String(error);
-        addWsLog(
+        addLog(
           `[WS] Failed to parse signaling message: ${errorDetails}`,
           "error"
         );
-        addWsLog(`[WS] Raw message data: ${event.data}`, "error");
+        addLog(`[WS] Raw message data: ${event.data}`, "error");
       }
     };
 
     return () => {
       if (wsRef.current) {
-        addWsLog("[WS] Cleanup: Closing WebSocket connection");
+        addLog("[WS] Cleanup: Closing WebSocket connection");
         wsRef.current.close();
         setWsReadyState(wsRef.current.readyState); // Set to CLOSING (2)
         wsRef.current = null;
@@ -193,21 +188,21 @@ export function useSignaling<T extends MessageWithType>(
       setWsReadyState(null);
       // Do not clear all signal callbacks globally here; each component should unsubscribe its own callback.
     };
-  }, [url, channelId, addWsLog, getUrl]);
+  }, [url, channelId, addLog, getUrl]);
 
   // Function to close the WebSocket and update ready state
   const closeWebSocket = useCallback(() => {
     if (wsRef.current) {
-      addWsLog("[WS] Manual closeWebSocket called");
+      addLog("[WS] Manual closeWebSocket called");
       wsRef.current.close();
       setWsReadyState(wsRef.current.readyState); // Set to CLOSING (2)
       wsRef.current = null;
       setIsOpen(false);
     }
-  }, [addWsLog]);
+  }, [addLog]);
 
   return {
-    wsLogs,
+    logs,
     sendSignal,
     onSignal,
     isOpen,
