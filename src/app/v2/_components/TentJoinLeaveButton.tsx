@@ -5,13 +5,13 @@ const TentJoinLeaveButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement
     <button
       {...props}
       onMouseEnter={(e) => {
-        e.currentTarget.classList.add("v2-tent-btn-hover");
+        e.currentTarget.classList.add("v2-tent-action-btn-hover");
         if (props.onMouseEnter) {
           props.onMouseEnter(e);
         }
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.classList.remove("v2-tent-btn-hover");
+        e.currentTarget.classList.remove("v2-tent-action-btn-hover");
         if (props.onMouseLeave) {
           props.onMouseLeave(e);
         }

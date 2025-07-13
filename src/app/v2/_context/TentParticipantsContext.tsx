@@ -74,7 +74,7 @@ const TentParticipantsProvider: FC<{ children: ReactNode }> = ({
     : "";
 
   // Custom signaling hook for websocket events
-  const { onSignal, wsLatency, isOpen } = useSignaling<TentEventMessage>({
+  const { onSignal, wsLatency, wsReadyState } = useSignaling<TentEventMessage>({
     url: wsUrl,
   });
 
@@ -117,7 +117,7 @@ const TentParticipantsProvider: FC<{ children: ReactNode }> = ({
 
   return (
     <TentParticipantsContext.Provider
-      value={{ getParticipantsByTentId, wsLatency, isOpen }}
+      value={{ getParticipantsByTentId, wsLatency, isOpen: wsReadyState == 1 }}
     >
       {children}
     </TentParticipantsContext.Provider>

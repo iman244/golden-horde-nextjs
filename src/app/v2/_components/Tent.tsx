@@ -44,8 +44,9 @@ const Tent: FC<{ tent: TentType }> = ({ tent }) => {
           <TentJoinLeaveButton
             onClick={onTentClick}
             className={clsx(
-              "v2-tent-btn",
-              tentStatus == "Open" ? "v2-tent-btn-leave" : "v2-tent-btn-join"
+              tentStatus == "Open"
+                ? "v2-tent-action-btn v2-tent-action-btn-leave"
+                : "v2-tent-action-btn"
             )}
           >
             {getTentButtonLabel(tentStatus)}

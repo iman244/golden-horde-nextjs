@@ -128,7 +128,7 @@ body {
   @apply px-4 py-2 rounded-md text-white font-semibold text-xs transition-all duration-200 min-w-[80px] capitalize outline-none border-0 cursor-pointer shadow-none;
 }
 .v2-tent-btn-join {
-  @apply bg-emerald-600;
+  @apply bg-yellow-400 !text-gray-900 font-semibold rounded-md px-4 py-2 text-xs transition-all duration-200 shadow hover:bg-yellow-300 hover:!text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 min-w-0;
 }
 .v2-tent-btn-leave {
   @apply bg-red-600;
@@ -144,4 +144,70 @@ body {
 }
 .v2-tent-rtt {
   @apply bg-blue-500/15 text-cyan-300 px-4 py-2 rounded-md mb-3 font-mono text-xs inline-block;
+}
+
+.v2-horde-btn {
+  @apply w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold transition-all border-2 shadow-md cursor-pointer bg-white/5 border-white/10 text-gray-200 hover:bg-white/10;
+}
+.v2-horde-btn-selected {
+  @apply bg-yellow-400/20 border-yellow-400 text-yellow-400;
+}
+
+/* --- Tent List Button (Sidebar) --- */
+.v2-tent-list-btn {
+  @apply w-full text-left px-3 py-2 rounded font-medium text-sm transition-all cursor-pointer text-gray-200 border-l-4 border-transparent hover:bg-white/10;
+}
+.v2-tent-list-btn-selected {
+  @apply bg-yellow-400/10 text-yellow-400 border-l-4 border-yellow-400;
+}
+
+/* --- Tent Action Button (Join/Leave) --- */
+.v2-tent-action-btn {
+  @apply w-full bg-yellow-400 text-gray-900 font-semibold rounded-md px-4 py-2 text-xs transition-all duration-200 shadow hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 min-w-0 cursor-pointer;
+}
+.v2-tent-action-btn-leave {
+  @apply bg-red-600 text-white hover:bg-red-700 focus:ring-red-400;
+}
+.v2-tent-action-btn-hover {
+  @apply -translate-y-[1px] shadow-lg shadow-black/30;
+}
+
+.v2-main-header {
+  @apply border-b border-white/10 px-6 py-4 text-lg font-semibold text-yellow-400 bg-black/30 backdrop-blur-lg;
+}
+
+/* --- V2 Channel List (Sidebar) --- */
+.v2-channel-list {
+  @apply w-80 border-r border-white/10 bg-black/30 backdrop-blur-lg flex flex-col py-4;
+}
+
+/* --- V2 Main Panel --- */
+.v2-main-panel {
+  @apply flex flex-col flex-1;
+}
+
+/* --- Drawer styles for mobile --- */
+@media (max-width: 640px) {
+  .v2-channel-list {
+    @apply w-20 min-w-0 max-w-none flex-1 h-screen;
+  }
+  .v2-main-panel {
+    @apply fixed left-0 right-0 bottom-0 top-0 z-50 bg-black/90 rounded-t-2xl shadow-2xl transition-transform duration-300;
+    transform: translateY(100%);
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 1rem 1rem 0 0;
+  }
+  .v2-main-panel--drawer-open {
+    transform: translateY(0);
+  }
+  .v2-main-panel--drawer-closed {
+    transform: translateY(100%);
+  }
+  .v2-main-panel__drawer-toggle-bar {
+    @apply fixed left-0 right-0 bottom-0 z-50 bg-[#161616] border-t border-[#161616] flex items-center justify-center;
+  }
+  .v2-main-panel__drawer-toggle-btn {
+    @apply flex items-center justify-center w-10 h-10 shadow-none bg-transparent border-none;
+  }
 }
