@@ -1,28 +1,37 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useHordesQuery } from "../hooks/useHordesQuery";
 import TentListItem from "./_components/TentListItem";
 import { useTentRTCContext } from "./_context/TentRTCContext";
-import { TentDrawerToggleBar, TentDrawerPanel } from "./_components/TentDrawer";
+import { TentDrawerPanel } from "./_components/TentDrawer";
+import { TentDrawerToggleBar } from "./_components/TentDrawerToggleBar";
+import Drawer from "./_components/Drawer";
 
 const V2Page = () => {
   const hordes_q = useHordesQuery();
   const hordes = hordes_q.data?.data || [];
 
-
   // State for selected horde
   const [selectedHordeId, setSelectedHordeId] = useState(hordes[0]?.id || null);
-  const selectedHorde = hordes.find((h) => h.id === selectedHordeId) || hordes[0] || undefined;
+  const selectedHorde =
+    hordes.find((h) => h.id === selectedHordeId) || hordes[0] || undefined;
 
+    const [m, setM] = useState('')
   // Use currentTentId from context
-  const { currentTentId } = useTentRTCContext();
+  const { currentTentId, connections } = useTentRTCContext();
+
+  useEffect(() => {
+    // console.log("connections", connections)
+  }, [connections]);
 
   // Drawer state for mobile
   const [drawerOpen, setDrawerOpen] = useState(false);
   // Helper: is mobile (match Tailwind's sm breakpoint)
   const isMobile = typeof window !== "undefined" && window.innerWidth <= 640;
   // Find the current tent
-  const currentTent = selectedHorde?.tents.find((tent) => tent.id === currentTentId);
+  const currentTent = selectedHorde?.tents.find(
+    (tent) => tent.id === currentTentId
+  );
 
   return (
     <div className="v2-page-bg relative">
@@ -49,19 +58,39 @@ const V2Page = () => {
         </div>
         <div className="flex-1 space-y-1 px-2">
           {selectedHorde?.tents.map((tent) => (
-              <TentListItem key={tent.id} tent={tent} />
+            <TentListItem key={tent.id} tent={tent} />
           ))}
         </div>
       </div>
 
       {/* Drawer Toggle Bar: Only show when closed and on mobile */}
-      {isMobile && currentTent && !drawerOpen && (
+      {/* {isMobile && currentTent && !drawerOpen && (
         <TentDrawerToggleBar  />
-      )}
+      )} */}
       {/* Drawer Panel: Only show when open and on mobile, or always on desktop */}
-      {currentTent && (
+      {/* {currentTent && (
         <TentDrawerPanel tent={currentTent} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
-      )}
+      )} */}
+      <Drawer>
+        {Array.from(connections).map(([user, { pc, dc }]) => (
+          <div key={user}>
+            <p>{user}</p>
+            <div className="flex flex-col gap-2">
+              <span>connectionState: {pc.connectionState}</span>
+              <span>signalingState: {pc.signalingState}</span>
+              <span>local: {pc.localDescription?.type}</span>
+              <span>remote: {pc.remoteDescription?.type}</span>
+              <input value={m} onChange={(e) => setM(e.target.value)} />
+              <button onClick={()=> {
+                console.log("m", m)
+                console.log("dc", dc)
+                dc?.send(m)
+              }} >send</button>
+            </div>
+          </div>
+        ))}
+      </Drawer>
+
     </div>
   );
 };

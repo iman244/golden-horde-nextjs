@@ -106,7 +106,7 @@ const TentListItem: React.FC<TentListItemProps> = ({ tent }) => {
         )}
       </button>
       {users.length > 0 && (
-        <div style={{ padding: "12px 12px 10px 24px" }}>
+        <div style={{ padding: "12px 12px 10px 24px", display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {users.map((username) => (
             <div
               key={username}

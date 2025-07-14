@@ -1,8 +1,8 @@
 import { useAuth } from "@/app/context/AuthContext";
 import { useSignaling } from "@/app/hooks/useSignaling";
-import { VoiceChatSignalingMessage } from "@/app/types";
 import { useCallback } from "react";
 import { getWebSocketStatus, WebSocketStatusType } from "../_utils";
+import { TentSignalingMessages } from "../_types";
 
 export const useTentSignaling = (currentTentId: string | number | null) => {
   const { token } = useAuth();
@@ -17,8 +17,8 @@ export const useTentSignaling = (currentTentId: string | number | null) => {
     [token]
   );
 
-  const { wsLatency, wsReadyState, closeWebSocket, logs: wsLogs } =
-    useSignaling<VoiceChatSignalingMessage>({
+  const { onSignal, sendSignal, wsLatency, wsReadyState, closeWebSocket, logs: wsLogs } =
+    useSignaling<TentSignalingMessages>({
       channelId: currentTentId,
       getUrl: getVoiceChatUrl,
     });
@@ -35,5 +35,7 @@ export const useTentSignaling = (currentTentId: string | number | null) => {
     status,
     closeWebSocket,
     wsLogs,
+    onSignal,
+    sendSignal
   };
 };
