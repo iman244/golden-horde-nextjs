@@ -9,6 +9,7 @@ const V2Page = () => {
   const hordes_q = useHordesQuery();
   const hordes = hordes_q.data?.data || [];
 
+
   // State for selected horde
   const [selectedHordeId, setSelectedHordeId] = useState(hordes[0]?.id || null);
   const selectedHorde = hordes.find((h) => h.id === selectedHordeId) || hordes[0] || undefined;

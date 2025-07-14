@@ -1,7 +1,7 @@
 import React from "react";
 import type { Tent } from "@/app/data.types";
 import { useTentRTCContext } from "../_context/TentRTCContext";
-import { useTentParticipants } from "../_context/TentParticipantsContext";
+import { useTentsLiveUsers } from "../_context/TentsLiveUsersContext";
 import { HiSpeakerWave } from "react-icons/hi2";
 import { BiWifi, BiWifi0, BiWifi1, BiWifi2, BiWifiOff } from "react-icons/bi";
 
@@ -13,7 +13,7 @@ interface TentListItemProps {
 
 const TentListItem: React.FC<TentListItemProps> = ({ tent }) => {
   const { currentTentId, joinTent, status, wsLatency } = useTentRTCContext();
-  const { getParticipantsByTentId } = useTentParticipants();
+  const { getParticipantsByTentId } = useTentsLiveUsers();
   const users = getParticipantsByTentId(tent.id);
   const isSelected = tent.id === currentTentId;
   const tentStatus = status(tent.id);

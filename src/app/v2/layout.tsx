@@ -3,7 +3,7 @@ import React, { FC, ReactNode } from "react";
 import { useAuth } from "../context/AuthContext";
 import Loading from "../loading";
 import RedirectUnAuthorizedUserCard from "./_components/RedirectUnAuthorizedUserCard";
-import TentParticipantsProvider from "./_context/TentParticipantsContext";
+import TentsLiveUsersProvider from "./_context/TentsLiveUsersContext";
 import TentRTCProvider from "./_context/TentRTCContext";
 
 const V2Layout: FC<{ children: ReactNode }> = ({ children }) => {
@@ -13,9 +13,9 @@ const V2Layout: FC<{ children: ReactNode }> = ({ children }) => {
   if (authStatus === "unauthenticated") return <RedirectUnAuthorizedUserCard />;
 
   return (
-    <TentParticipantsProvider>
+    <TentsLiveUsersProvider>
       <TentRTCProvider>{children}</TentRTCProvider>
-    </TentParticipantsProvider>
+    </TentsLiveUsersProvider>
   );
 };
 

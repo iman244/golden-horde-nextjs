@@ -11,14 +11,14 @@ import React, {
   useState,
 } from "react";
 
-interface TentParticipantsContextType {
+interface TentsLiveUsersContextType {
   getParticipantsByTentId: (tentId: string | number) => string[];
   wsLatency: number | null;
   isOpen: boolean;
 }
 
-const TentParticipantsContext = createContext<
-  TentParticipantsContextType | undefined
+const TentsLiveUsersContext = createContext<
+  TentsLiveUsersContextType | undefined
 >(undefined);
 
 // Type guard for messages with tent_id
@@ -57,7 +57,7 @@ function removeUserFromTent(
   return prev;
 }
 
-const TentParticipantsProvider: FC<{ children: ReactNode }> = ({
+const TentsLiveUsersProvider: FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const { token } = useAuth();
@@ -116,21 +116,21 @@ const TentParticipantsProvider: FC<{ children: ReactNode }> = ({
     participantsByTent[tentId] || [];
 
   return (
-    <TentParticipantsContext.Provider
+    <TentsLiveUsersContext.Provider
       value={{ getParticipantsByTentId, wsLatency, isOpen: wsReadyState == 1 }}
     >
       {children}
-    </TentParticipantsContext.Provider>
+    </TentsLiveUsersContext.Provider>
   );
 };
 
-export default TentParticipantsProvider;
+export default TentsLiveUsersProvider;
 
-export const useTentParticipants = () => {
-  const context = useContext(TentParticipantsContext);
+export const useTentsLiveUsers = () => {
+  const context = useContext(TentsLiveUsersContext);
   if (!context) {
     throw new Error(
-      "useTentParticipants must be used within an TentParticipantsProvider"
+      "useTentsLiveUsers must be used within a TentsLiveUsersProvider"
     );
   }
   return context;

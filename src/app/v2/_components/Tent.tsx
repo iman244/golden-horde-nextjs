@@ -1,6 +1,6 @@
 import { Tent as TentType } from "@/app/data.types";
 import React, { FC, useMemo } from "react";
-import { useTentParticipants } from "../_context/TentParticipantsContext";
+import { useTentsLiveUsers } from "../_context/TentsLiveUsersContext";
 import { useTentRTCContext } from "../_context/TentRTCContext";
 import LogsModal from "./LogsModal";
 import TentJoinLeaveButton from "./TentJoinLeaveButton";
@@ -10,7 +10,7 @@ import TentRTT from "./TentRTT";
 import { getTentButtonLabel } from "../_utils";
 
 const Tent: FC<{ tent: TentType }> = ({ tent }) => {
-  const { getParticipantsByTentId } = useTentParticipants();
+  const { getParticipantsByTentId } = useTentsLiveUsers();
   const { joinTent, leaveTent, status, logs, wsLogs } =
     useTentRTCContext();
   const tentStatus = useMemo(() => status(tent.id), [status, tent.id]);
