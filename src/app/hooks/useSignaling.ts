@@ -183,7 +183,7 @@ export function useSignaling<T extends MessageWithType>(
       setWsReadyState(null);
       // Do not clear all signal callbacks globally here; each component should unsubscribe its own callback.
     };
-  }, [url, channelId, addLog, getUrl]);
+  }, [url, channelId, addLog, getUrl, clearLogs]);
 
   // Function to close the WebSocket and update ready state
   const closeWebSocket = useCallback(() => {

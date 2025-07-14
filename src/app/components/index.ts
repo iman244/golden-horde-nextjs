@@ -31,4 +31,3 @@ export { LogsViewer } from './LogsViewer';
 export { PeerConnectionStatus } from './PeerConnectionStatus';
 export { PeerConnectionInfoModal } from './PeerConnectionInfoModal';
 export { default as AuthBackButton } from './AuthBackButton';
-export { PeerConnectionStatsModal } from "./PeerConnectionStatsModal"; 

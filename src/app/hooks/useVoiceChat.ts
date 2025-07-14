@@ -77,11 +77,15 @@ export function useVoiceChat(token: string | null) {
   );
 
   // Initialize signaling when tentId changes
-  const { wsLogs, sendSignal, onSignal, wsLatency } =
-    useSignaling<VoiceChatSignalingMessage>({
-      channelId: currentTentId,
-      getUrl: getVoiceChatUrl,
-    });
+  const {
+    logs: wsLogs,
+    sendSignal,
+    onSignal,
+    wsLatency,
+  } = useSignaling<VoiceChatSignalingMessage>({
+    channelId: currentTentId,
+    getUrl: getVoiceChatUrl,
+  });
 
   // ICE candidate handler to be passed to useWebRTC
   const handleIceCandidate = useCallback(
@@ -105,7 +109,7 @@ export function useVoiceChat(token: string | null) {
         addLog("ICE candidate sent to server.");
       }
     },
-    [addLog, sendSignal, username]
+    [addLog, sendSignal]
   );
 
   const {
@@ -178,6 +182,7 @@ export function useVoiceChat(token: string | null) {
       createPeerConnection,
       addTracksToPeer,
       sendSignal,
+      peerDataRef,
     ]
   );
 
@@ -209,6 +214,37 @@ export function useVoiceChat(token: string | null) {
     },
     [addLog, currentTentId, peerConnections]
   );
+
+  // Leave current tent
+  const leaveTent = useCallback(async () => {
+    if (currentTentId === null) {
+      addLog("Not connected to any tent");
+      return;
+    }
+
+    addLog(`Leaving tent ${currentTentId}...`);
+
+    // Close all peer connections
+    closeAllPeerConnections();
+
+    // Stop media stream
+    stopMedia();
+
+    // Reset states
+    setCurrentTentId(null);
+    setIsConnected(false);
+    setUsername(null);
+    setOtherUsers([]);
+
+    addLog(`Successfully left tent ${currentTentId}`);
+  }, [
+    currentTentId,
+    stopMedia,
+    addLog,
+    closeAllPeerConnections,
+    setUsername,
+    setOtherUsers,
+  ]);
 
   // Join a specific tent
   const joinTent = useCallback(
@@ -446,45 +482,12 @@ export function useVoiceChat(token: string | null) {
       mediaError,
       sendSignal,
       onSignal,
-      setUsername,
-      setOtherUsers,
-      username,
       handleConnectInfo,
       handleUserJoinLeave,
-      peerConnections,
+      leaveTent,
+      peerDataRef,
     ]
   );
-
-  // Leave current tent
-  const leaveTent = useCallback(async () => {
-    if (currentTentId === null) {
-      addLog("Not connected to any tent");
-      return;
-    }
-
-    addLog(`Leaving tent ${currentTentId}...`);
-
-    // Close all peer connections
-    closeAllPeerConnections();
-
-    // Stop media stream
-    stopMedia();
-
-    // Reset states
-    setCurrentTentId(null);
-    setIsConnected(false);
-    setUsername(null);
-    setOtherUsers([]);
-
-    addLog(`Successfully left tent ${currentTentId}`);
-  }, [
-    currentTentId,
-    stopMedia,
-    addLog,
-    closeAllPeerConnections,
-    setUsername,
-    setOtherUsers,
-  ]);
 
   return {
     logs,

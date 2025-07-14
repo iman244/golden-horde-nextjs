@@ -14,7 +14,7 @@ export function useTentEvents({ token, onAuthRejected }: { token: string | null;
   const {
     onSignal: onTentEventSignal,
     wsLatency: onTentEventWsLatency,
-    isOpen: onTentEventIsOpen,
+    wsReadyState,
     onAuthRejected: onTentEventAuthRejected,
   } = useSignaling<TentEventMessage>({
     url: wsUrl,
@@ -71,6 +71,6 @@ export function useTentEvents({ token, onAuthRejected }: { token: string | null;
   return {
     tentUsersByTent,
     onTentEventWsLatency,
-    onTentEventIsOpen,
+    onTentEventIsOpen: wsReadyState == 1,
   };
 }

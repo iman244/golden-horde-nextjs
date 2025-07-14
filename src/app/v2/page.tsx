@@ -11,7 +11,7 @@ const V2Page = () => {
 
   // State for selected horde
   const [selectedHordeId, setSelectedHordeId] = useState(hordes[0]?.id || null);
-  const selectedHorde = hordes.find((h) => h.id === selectedHordeId);
+  const selectedHorde = hordes.find((h) => h.id === selectedHordeId) || hordes[0] || undefined;
 
   // Use currentTentId from context
   const { currentTentId } = useTentRTCContext();
@@ -36,7 +36,7 @@ const V2Page = () => {
             onClick={() => setSelectedHordeId(horde.id)}
             title={horde.name}
           >
-            {horde.name[0]}
+            {horde.name[0].toUpperCase()}
           </button>
         ))}
       </div>

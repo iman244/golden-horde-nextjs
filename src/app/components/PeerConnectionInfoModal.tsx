@@ -1,16 +1,14 @@
 import React, { useEffect, useState } from "react";
 import {
-  getAllSenderInfo,
-  getAllReceiverInfo,
+//   getAllSenderInfo,
+//   getAllReceiverInfo,
   getPeerConnectionConfig,
-  getSenderParameters,
-  getSenderStats,
-  getReceiverStats,
+//   getSenderParameters,
+//   getSenderStats,
+//   getReceiverStats,
   getPeerConnectionStats,
   type RTCStatsReport,
 } from "../utils";
-import { SenderCard } from "./PeerConnectionInfoModal/SenderCard";
-import { ReceiverCard } from "./PeerConnectionInfoModal/ReceiverCard";
 
 interface PeerConnectionInfoModalProps {
   open: boolean;
@@ -19,162 +17,162 @@ interface PeerConnectionInfoModalProps {
 }
 
 type TabType = "info" | "senders" | "receivers";
-type SenderTab = "info" | "parameters" | "stats";
-type ReceiverTab = "info" | "stats";
+// type SenderTab = "info" | "parameters" | "stats";
+// type ReceiverTab = "info" | "stats";
 
-interface SenderDetail {
-  sender: RTCRtpSender;
-  info: ReturnType<typeof getAllSenderInfo>[0];
-  parameters?: Record<string, unknown>;
-  stats?: RTCStatsReport[];
-  expanded: boolean;
-  loadingStats: boolean;
-  loadingParameters: boolean;
-  activeTab: SenderTab;
-  fetchedParameters: boolean;
-  fetchedStats: boolean;
-}
+// interface SenderDetail {
+//   sender: RTCRtpSender;
+//   info: ReturnType<typeof getAllSenderInfo>[0];
+//   parameters?: Record<string, unknown>;
+//   stats?: RTCStatsReport[];
+//   expanded: boolean;
+//   loadingStats: boolean;
+//   loadingParameters: boolean;
+//   activeTab: SenderTab;
+//   fetchedParameters: boolean;
+//   fetchedStats: boolean;
+// }
 
-interface ReceiverDetail {
-  receiver: RTCRtpReceiver;
-  info: ReturnType<typeof getAllReceiverInfo>[0];
-  stats?: RTCStatsReport[];
-  expanded: boolean;
-  loadingStats: boolean;
-  activeTab: ReceiverTab;
-  fetchedStats: boolean;
-}
+// interface ReceiverDetail {
+//   receiver: RTCRtpReceiver;
+//   info: ReturnType<typeof getAllReceiverInfo>[0];
+//   stats?: RTCStatsReport[];
+//   expanded: boolean;
+//   loadingStats: boolean;
+//   activeTab: ReceiverTab;
+//   fetchedStats: boolean;
+// }
 
 export const PeerConnectionInfoModal: React.FC<PeerConnectionInfoModalProps> = ({ open, onClose, peerConnection }) => {
   const [activeTab, setActiveTab] = useState<TabType>("info");
-  const [senderDetails, setSenderDetails] = useState<SenderDetail[]>([]);
-  const [receiverDetails, setReceiverDetails] = useState<ReceiverDetail[]>([]);
+//   const [senderDetails, setSenderDetails] = useState<SenderDetail[]>([]);
+//   const [receiverDetails, setReceiverDetails] = useState<ReceiverDetail[]>([]);
   const [connectionStats, setConnectionStats] = useState<RTCStatsReport[] | null>(null);
   const [loadingConnectionStats, setLoadingConnectionStats] = useState(false);
 
   useEffect(() => {
     if (peerConnection) {
       // Initialize sender details
-      const senders = peerConnection.getSenders();
-      const senderInfo = getAllSenderInfo(peerConnection);
-      setSenderDetails(
-        senders.map((sender, index) => ({
-          sender,
-          info: senderInfo[index],
-          expanded: false,
-          loadingStats: false,
-          loadingParameters: false,
-          activeTab: "info",
-          fetchedParameters: false,
-          fetchedStats: false,
-        }))
-      );
+    //   const senders = peerConnection.getSenders();
+    //   const senderInfo = getAllSenderInfo(peerConnection);
+    //   setSenderDetails(
+    //     senders.map((sender, index) => ({
+    //       sender,
+    //       info: senderInfo[index],
+    //       expanded: false,
+    //       loadingStats: false,
+    //       loadingParameters: false,
+    //       activeTab: "info",
+    //       fetchedParameters: false,
+    //       fetchedStats: false,
+    //     }))
+    //   );
 
       // Initialize receiver details
-      const receivers = peerConnection.getReceivers();
-      const receiverInfo = getAllReceiverInfo(peerConnection);
-      setReceiverDetails(
-        receivers.map((receiver, index) => ({
-          receiver,
-          info: receiverInfo[index],
-          expanded: false,
-          loadingStats: false,
-          activeTab: "info",
-          fetchedStats: false,
-        }))
-      );
+    //   const receivers = peerConnection.getReceivers();
+    //   const receiverInfo = getAllReceiverInfo(peerConnection);
+    //   setReceiverDetails(
+    //     receivers.map((receiver, index) => ({
+    //       receiver,
+    //       info: receiverInfo[index],
+    //       expanded: false,
+    //       loadingStats: false,
+    //       activeTab: "info",
+    //       fetchedStats: false,
+    //     }))
+    //   );
     }
   }, [peerConnection]);
 
   if (!open) return null;
 
-  const handleSenderExpand = (index: number) => {
-    setSenderDetails((prev) =>
-      prev.map((detail, i) => (i === index ? { ...detail, expanded: !detail.expanded } : detail))
-    );
-  };
+//   const handleSenderExpand = (index: number) => {
+//     setSenderDetails((prev) =>
+//       prev.map((detail, i) => (i === index ? { ...detail, expanded: !detail.expanded } : detail))
+//     );
+//   };
 
-  const handleReceiverExpand = (index: number) => {
-    setReceiverDetails((prev) =>
-      prev.map((detail, i) => (i === index ? { ...detail, expanded: !detail.expanded } : detail))
-    );
-  };
+//   const handleReceiverExpand = (index: number) => {
+//     setReceiverDetails((prev) =>
+//       prev.map((detail, i) => (i === index ? { ...detail, expanded: !detail.expanded } : detail))
+//     );
+//   };
 
-  const handleSenderTabChange = async (index: number, tab: SenderTab) => {
-    setSenderDetails((prev) =>
-      prev.map((detail, i) =>
-        i === index ? { ...detail, activeTab: tab } : detail
-      )
-    );
-    if (tab === "parameters" && !senderDetails[index].fetchedParameters) {
-      setSenderDetails((prev) =>
-        prev.map((detail, i) =>
-          i === index ? { ...detail, loadingParameters: true } : detail
-        )
-      );
-      const parameters = await getSenderParameters(senderDetails[index].sender);
-      setSenderDetails((prev) =>
-        prev.map((detail, i) =>
-          i === index
-            ? {
-                ...detail,
-                parameters: parameters || undefined,
-                loadingParameters: false,
-                fetchedParameters: true,
-              }
-            : detail
-        )
-      );
-    }
-    if (tab === "stats" && !senderDetails[index].fetchedStats) {
-      setSenderDetails((prev) =>
-        prev.map((detail, i) =>
-          i === index ? { ...detail, loadingStats: true } : detail
-        )
-      );
-      const stats = await getSenderStats(senderDetails[index].sender);
-      setSenderDetails((prev) =>
-        prev.map((detail, i) =>
-          i === index
-            ? {
-                ...detail,
-                stats: stats || undefined,
-                loadingStats: false,
-                fetchedStats: true,
-              }
-            : detail
-        )
-      );
-    }
-  };
+//   const handleSenderTabChange = async (index: number, tab: SenderTab) => {
+//     setSenderDetails((prev) =>
+//       prev.map((detail, i) =>
+//         i === index ? { ...detail, activeTab: tab } : detail
+//       )
+//     );
+//     if (tab === "parameters" && !senderDetails[index].fetchedParameters) {
+//       setSenderDetails((prev) =>
+//         prev.map((detail, i) =>
+//           i === index ? { ...detail, loadingParameters: true } : detail
+//         )
+//       );
+//       const parameters = await getSenderParameters(senderDetails[index].sender);
+//       setSenderDetails((prev) =>
+//         prev.map((detail, i) =>
+//           i === index
+//             ? {
+//                 ...detail,
+//                 parameters: parameters || undefined,
+//                 loadingParameters: false,
+//                 fetchedParameters: true,
+//               }
+//             : detail
+//         )
+//       );
+//     }
+//     if (tab === "stats" && !senderDetails[index].fetchedStats) {
+//       setSenderDetails((prev) =>
+//         prev.map((detail, i) =>
+//           i === index ? { ...detail, loadingStats: true } : detail
+//         )
+//       );
+//       const stats = await getSenderStats(senderDetails[index].sender);
+//       setSenderDetails((prev) =>
+//         prev.map((detail, i) =>
+//           i === index
+//             ? {
+//                 ...detail,
+//                 stats: stats || undefined,
+//                 loadingStats: false,
+//                 fetchedStats: true,
+//               }
+//             : detail
+//         )
+//       );
+//     }
+//   };
 
-  const handleReceiverTabChange = async (index: number, tab: ReceiverTab) => {
-    setReceiverDetails((prev) =>
-      prev.map((detail, i) =>
-        i === index ? { ...detail, activeTab: tab } : detail
-      )
-    );
-    if (tab === "stats" && !receiverDetails[index].fetchedStats) {
-      setReceiverDetails((prev) =>
-        prev.map((detail, i) =>
-          i === index ? { ...detail, loadingStats: true } : detail
-        )
-      );
-      const stats = await getReceiverStats(receiverDetails[index].receiver);
-      setReceiverDetails((prev) =>
-        prev.map((detail, i) =>
-          i === index
-            ? {
-                ...detail,
-                stats: stats || undefined,
-                loadingStats: false,
-                fetchedStats: true,
-              }
-            : detail
-        )
-      );
-    }
-  };
+//   const handleReceiverTabChange = async (index: number, tab: ReceiverTab) => {
+//     setReceiverDetails((prev) =>
+//       prev.map((detail, i) =>
+//         i === index ? { ...detail, activeTab: tab } : detail
+//       )
+//     );
+//     if (tab === "stats" && !receiverDetails[index].fetchedStats) {
+//       setReceiverDetails((prev) =>
+//         prev.map((detail, i) =>
+//           i === index ? { ...detail, loadingStats: true } : detail
+//         )
+//       );
+//       const stats = await getReceiverStats(receiverDetails[index].receiver);
+//       setReceiverDetails((prev) =>
+//         prev.map((detail, i) =>
+//           i === index
+//             ? {
+//                 ...detail,
+//                 stats: stats || undefined,
+//                 loadingStats: false,
+//                 fetchedStats: true,
+//               }
+//             : detail
+//         )
+//       );
+//     }
+//   };
 
   const handleGetConnectionStats = async () => {
     if (!peerConnection) return;
@@ -270,7 +268,7 @@ export const PeerConnectionInfoModal: React.FC<PeerConnectionInfoModalProps> = (
                 </div>
               )}
 
-              {activeTab === "senders" && (
+              {/* {activeTab === "senders" && (
                 <div className="space-y-3">
                   <h3 className="font-semibold mb-2">Outgoing Tracks (Senders)</h3>
                   {senderDetails.map((detail, index) => (
@@ -283,9 +281,9 @@ export const PeerConnectionInfoModal: React.FC<PeerConnectionInfoModalProps> = (
                     />
                   ))}
                 </div>
-              )}
+              )} */}
 
-              {activeTab === "receivers" && (
+              {/* {activeTab === "receivers" && (
                 <div className="space-y-3">
                   <h3 className="font-semibold mb-2">Incoming Tracks (Receivers)</h3>
                   {receiverDetails.map((detail, index) => (
@@ -298,7 +296,7 @@ export const PeerConnectionInfoModal: React.FC<PeerConnectionInfoModalProps> = (
                     />
                   ))}
                 </div>
-              )}
+              )} */}
             </div>
           </>
         ) : (

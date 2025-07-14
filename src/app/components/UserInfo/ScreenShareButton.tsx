@@ -9,7 +9,7 @@ interface ScreenShareButtonProps {
 
 export function ScreenShareButton({ 
   isScreenSharing, 
-  onToggleScreenShare, 
+//   onToggleScreenShare, 
   disabled = false 
 }: ScreenShareButtonProps) {
     const onToggleScreenShareLocal = useCallback(async ()=>{
