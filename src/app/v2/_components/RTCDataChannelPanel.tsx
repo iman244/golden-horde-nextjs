@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useRef } from "react";
 import { useTentRTCContext } from "../_context/TentRTCContext";
 import { BiSend } from "react-icons/bi";
 import ConnectionsList from "./ConnectionsList";
@@ -7,6 +7,7 @@ import MessageList from "./Message/MessageList";
 const RTCDataChannelPanel = () => {
   const { senddcMessage } = useTentRTCContext();
   const [m, setM] = useState("");
+  const messageListRef = useRef<HTMLDivElement>(null);
   const onChangeM = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       setM(event.target.value);
@@ -17,16 +18,21 @@ const RTCDataChannelPanel = () => {
     if (m.length > 0) {
       senddcMessage(m);
       setM("");
+      // Scroll to bottom after sending
+      if (messageListRef.current) {
+        console.log("messageListRef.current.scrollHeight", messageListRef.current.scrollHeight)
+        messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+      }
     }
   }, [senddcMessage, m]);
 
   return (
-    <div className="p-3 flex flex-col h-[60vh] max-w-xl mx-auto bg-[#181a20]/90">
-      <div className="v2-card-title">RTC Data Channel</div>
+    <div className="flex flex-col h-[100dvh] bg-[#181a20]/90">
+      <div className="v2-card-title p-3">RTC Data Channel</div>
       {/* Replace the old connections UI with the new component */}
       <ConnectionsList />
 
-      <MessageList />
+      <MessageList containerRef={messageListRef} />
 
       <form
         className="flex gap-2 h-[50px] p-2 bg-black/30 rounded-b-md border-t border-white/10"

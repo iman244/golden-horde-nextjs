@@ -23,7 +23,7 @@ const Drawer: FC<DrawerProps> = ({ children, openUI }) => {
             onClick={onOpen}
           >
             <button
-              className="v2-main-panel__drawer-toggle-btn"
+              className="v2-main-panel__drawer-toggle-btn text-white"
               aria-label="Open Drawer"
             >
               <CgChevronUp />

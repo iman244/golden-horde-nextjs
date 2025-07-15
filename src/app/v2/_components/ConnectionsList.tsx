@@ -5,7 +5,7 @@ import clsx from "clsx";
 const ConnectionsList: React.FC = () => {
   const { connections } = useTentRTCContext();
   return (
-    <div className="mb-3 flex gap-2">
+    <div className="mb-3 flex gap-2 p-2">
       {Array.from(connections).length === 0 && (
         <div className="text-gray-400">No connection</div>
       )}

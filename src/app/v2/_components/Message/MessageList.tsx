@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect, useRef, useCallback } from "react";
 import {
   RTCDataChannelMessageType,
   RTCDataChannelReceivedMessage,
@@ -31,14 +31,50 @@ function getSenderColorClass(sender: string) {
   return senderColors[idx];
 }
 
-const MessageList = () => {
+interface MessageListProps {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+}
+
+const MessageList: React.FC<MessageListProps> = ({ containerRef }) => {
   const { dcMessages } = useTentRTCContext();
   const messageMeta = useMemo(
     () => getMessageDisplayMeta(dcMessages),
     [dcMessages]
   );
+
+  // Smart auto-scroll logic
+  const isAtBottomRef = useRef(true);
+  const SCROLL_THRESHOLD = 50; // px
+
+  const handleScroll = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    isAtBottomRef.current = scrollHeight - scrollTop - clientHeight < SCROLL_THRESHOLD;
+  }, [containerRef]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", handleScroll);
+    return () => {
+      el.removeEventListener("scroll", handleScroll);
+    };
+  }, [containerRef, handleScroll]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (isAtBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [dcMessages, containerRef]);
+
   return (
-    <div className="flex flex-col flex-1 v2-content rounded-md p-2! overflow-y-auto">
+    <div
+      ref={containerRef}
+      className="flex flex-col flex-1 v2-content rounded-md p-2! pb-[50px]"
+    >
       {dcMessages.length === 0 && (
         <div className="text-gray-400 text-center">No messages yet</div>
       )}
@@ -74,7 +110,7 @@ export const MessageItem: React.FC<MessageItemProps> = (props) => {
     isFirstInGroup = false,
     isLastInGroup = false,
   } = props;
-  console.log("props", props)
+
   const { username } = useAuth();
   const isReceived = message.type === "received";
   const displayName = isReceived
