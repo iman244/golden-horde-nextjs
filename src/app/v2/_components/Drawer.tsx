@@ -14,22 +14,18 @@ const Drawer: FC<DrawerProps> = ({ children, openUI }) => {
   return (
     <>
       {/* Drawer Toggle Bar: Only show when closed and on mobile */}
-      {!isOpen && (
-        openUI ? (
-          openUI(onOpen)
-        ) : (
-          <div
-            className="v2-main-panel__drawer-toggle-bar block sm:hidden"
+      {openUI ? (
+        openUI(onOpen)
+      ) : (
+        <div className="v2-main-panel__drawer-toggle-bar block sm:hidden">
+          <button
+            className="v2-main-panel__drawer-toggle-btn text-white"
+            aria-label="Open Drawer"
             onClick={onOpen}
           >
-            <button
-              className="v2-main-panel__drawer-toggle-btn text-white"
-              aria-label="Open Drawer"
-            >
-              <CgChevronUp />
-            </button>
-          </div>
-        )
+            <CgChevronUp />
+          </button>
+        </div>
       )}
       {/* Drawer Panel: Only show when open and on mobile, or always on desktop */}
       <div
@@ -64,7 +60,7 @@ const Drawer: FC<DrawerProps> = ({ children, openUI }) => {
             <polyline points="6 9 12 15 18 9"></polyline>
           </svg>
         </button>
-        <div className="flex-1 w-full">{children}</div>
+        <div className="flex-1 w-full flex flex-col">{children}</div>
       </div>
     </>
   );

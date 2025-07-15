@@ -1,20 +1,28 @@
 "use client";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { useHordesQuery } from "../hooks/useHordesQuery";
 import TentListItem from "./_components/TentListItem";
 import Drawer from "./_components/Drawer";
 import RTCDataChannelPanel from "./_components/RTCDataChannelPanel";
-
+import { BiSolidMessageDetail } from "react-icons/bi";
+import { FaTools } from "react-icons/fa";
+import LogsContent from "./_components/LogsContent";
+import { useTentRTCContext } from "./_context/TentRTCContext";
+import clsx from "clsx";
 
 const V2Page = () => {
   const hordes_q = useHordesQuery();
   const hordes = hordes_q.data?.data || [];
+  const { logs, wsLogs } = useTentRTCContext();
+  const [tab, setTab] = useState<"RTCDataChannel" | "Logs">("RTCDataChannel");
+
+  const openRTCDataChannel = useCallback(() => setTab("RTCDataChannel"), []);
+  const openLogs = useCallback(() => setTab("Logs"), []);
 
   // State for selected horde
   const [selectedHordeId, setSelectedHordeId] = useState(hordes[0]?.id || null);
   const selectedHorde =
     hordes.find((h) => h.id === selectedHordeId) || hordes[0] || undefined;
-
 
   return (
     <div className="v2-page-bg relative">
@@ -54,10 +62,56 @@ const V2Page = () => {
       {/* {currentTent && (
         <TentDrawerPanel tent={currentTent} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
       )} */}
-      <Drawer>
-        <RTCDataChannelPanel />
-      </Drawer>
-
+      <div className="v2-main-panel__drawer-toggle-bar block sm:hidden p-2 items-center gap-4">
+        <Drawer
+          openUI={(onOpen) => (
+            <button
+              className="text-yellow-400 p-3 rounded-full border border-yellow-200"
+              aria-label="Open Drawer"
+              onClick={onOpen}
+            >
+              <FaTools size={20} />
+            </button>
+          )}
+        >
+          <LogsContent logs={{ system: logs, ws: wsLogs }} />
+        </Drawer>
+        <Drawer
+          openUI={(onOpen) => (
+            <button
+              className="text-yellow-400 p-3 rounded-full border border-yellow-200"
+              aria-label="Open Drawer"
+              onClick={onOpen}
+            >
+              <BiSolidMessageDetail size={20} />
+            </button>
+          )}
+        >
+          <RTCDataChannelPanel />
+        </Drawer>
+      </div>
+      <div className="flex-1 hidden sm:flex flex-col">
+        <div className="p-2 flex items-center justify-center gap-4">
+          <button
+            className={clsx("p-3 rounded-full border  border-yellow-200 cursor-pointer", tab == 'Logs' ? "bg-yellow-400 text-black" : "text-yellow-400")}
+            aria-label="Open Drawer"
+            onClick={openLogs}
+          >
+            <FaTools size={20} />
+          </button>
+          <button
+            className={clsx("p-3 rounded-full border  border-yellow-200 cursor-pointer", tab == 'RTCDataChannel' ? "bg-yellow-400 text-black" : "text-yellow-400")}
+            aria-label="Open Drawer"
+            onClick={openRTCDataChannel}
+          >
+            <BiSolidMessageDetail size={20} />
+          </button>
+        </div>
+        <div className="flex-1 flex flex-col">
+          {tab == "Logs" && <LogsContent logs={{ system: logs, ws: wsLogs }} />}
+          {tab == "RTCDataChannel" && <RTCDataChannelPanel />}
+        </div>
+      </div>
     </div>
   );
 };
