@@ -5,54 +5,20 @@ import {
 } from "../../_hooks/useRTCDataChannel";
 import { useAuth } from "@/app/context/AuthContext";
 import { useTentRTCContext } from "../../_context/TentRTCContext";
-
-// Helper function to compute display metadata for each message
-function getMessageDisplayMeta(dcMessages: RTCDataChannelMessageType[]) {
-  return dcMessages.map((me, index) => {
-    const isReceived = me.type === "received";
-    let showFromLabel = false;
-    let isGroupedWithPrev = false;
-    let isFirstInGroup = false;
-    let isLastInGroup = false;
-    if (isReceived) {
-      const prev = dcMessages[index - 1];
-      const next = dcMessages[index + 1];
-      const from = (me as RTCDataChannelReceivedMessage).from;
-      showFromLabel =
-        !prev ||
-        prev.type !== "received" ||
-        (prev as RTCDataChannelReceivedMessage).from !== from;
-      isGroupedWithPrev =
-        !!prev &&
-        prev.type === "received" &&
-        (prev as RTCDataChannelReceivedMessage).from === from;
-      isFirstInGroup = showFromLabel && index > 0;
-      isLastInGroup = !next || next.type !== "received" || (next as RTCDataChannelReceivedMessage).from !== from;
-    } else {
-      // Sent message grouping logic
-      const prev = dcMessages[index - 1];
-      const next = dcMessages[index + 1];
-      isGroupedWithPrev = !!prev && prev.type === "sent";
-      showFromLabel = !prev || prev.type !== "sent";
-      isFirstInGroup = showFromLabel && index > 0;
-      isLastInGroup = !next || next.type !== "sent";
-    }
-    return { message: me, showFromLabel, isGroupedWithPrev, isFirstInGroup, isLastInGroup };
-  });
-}
+import getMessageDisplayMeta from "../../_utils/getMessageDisplayMeta";
 
 // Color palette for sender labels
 const senderColors = [
-  'text-red-400',
-  'text-blue-400',
-  'text-green-400',
-  'text-yellow-400',
-  'text-purple-400',
-  'text-pink-400',
-  'text-indigo-400',
-  'text-teal-400',
-  'text-orange-400',
-  'text-cyan-400',
+  "text-red-400",
+  "text-blue-400",
+  "text-green-400",
+  "text-yellow-400",
+  "text-purple-400",
+  "text-pink-400",
+  "text-indigo-400",
+  "text-teal-400",
+  "text-orange-400",
+  "text-cyan-400",
 ];
 
 // Hash function to map sender name to a color index
@@ -67,7 +33,10 @@ function getSenderColorClass(sender: string) {
 
 const MessageList = () => {
   const { dcMessages } = useTentRTCContext();
-  const messageMeta = useMemo(() => getMessageDisplayMeta(dcMessages), [dcMessages]);
+  const messageMeta = useMemo(
+    () => getMessageDisplayMeta(dcMessages),
+    [dcMessages]
+  );
   return (
     <div className="flex flex-col flex-1 v2-content rounded-md p-2! overflow-y-auto">
       {dcMessages.length === 0 && (
@@ -97,7 +66,15 @@ interface MessageItemProps {
   isLastInGroup?: boolean;
 }
 
-export const MessageItem: React.FC<MessageItemProps> = ({ message, showFromLabel = true, isGroupedWithPrev = false, isFirstInGroup = false, isLastInGroup = false }) => {
+export const MessageItem: React.FC<MessageItemProps> = (props) => {
+  const {
+    message,
+    showFromLabel = true,
+    isGroupedWithPrev = false,
+    isFirstInGroup = false,
+    isLastInGroup = false,
+  } = props;
+  console.log("props", props)
   const { username } = useAuth();
   const isReceived = message.type === "received";
   const displayName = isReceived
@@ -105,12 +82,11 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, showFromLabel
     : username![0].toUpperCase();
   const date = new Date(message.timeStamp);
   const hour = date.getHours();
-  const minute = date.getMinutes().toString().padStart(2, '0');
+  const minute = date.getMinutes().toString().padStart(2, "0");
   const time = `${hour}:${minute}`;
 
   // Determine margin class
-  const marginClass = isGroupedWithPrev || isFirstInGroup ? 'mb-0.5' : 'mb-2';
-
+  const marginClass = isGroupedWithPrev || isFirstInGroup ? "mb-0.5" : "mb-2";
 
   if (isReceived) {
     const from = (message as RTCDataChannelReceivedMessage).from;
@@ -124,8 +100,12 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, showFromLabel
             </div>
           ) : null}
         </div>
-        <div className={`relative bg-white/10 text-white rounded-md px-3 py-2 min-h-[48px] pb-5 flex flex-col max-w-[70vw] sm:max-w-xs md:max-w-sm lg:max-w-md xl:max-w-lg 2xl:max-w-xl`}>
-          {showFromLabel && <div className={`text-sm mb-1 ${fromColor}`}>{from}</div>}
+        <div
+          className={`relative bg-white/10 text-white rounded-md px-3 py-2 min-h-[48px] pb-5 flex flex-col max-w-[70vw] sm:max-w-xs md:max-w-sm lg:max-w-md xl:max-w-lg 2xl:max-w-xl`}
+        >
+          {showFromLabel && (
+            <div className={`text-sm mb-1 ${fromColor}`}>{from}</div>
+          )}
           <div className="whitespace-pre-line break-words text-base pr-10">
             {message.data}
           </div>
@@ -140,7 +120,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, showFromLabel
   // Sent message
   return (
     <div className={`flex justify-end ${marginClass}`}>
-      <div className={`relative bg-yellow-400/10 text-white rounded-md px-3 py-2 text-right ml-auto min-h-[48px] pb-5 flex flex-col max-w-[80vw] sm:max-w-xs md:max-w-sm lg:max-w-md xl:max-w-lg 2xl:max-w-xl`}>
+      <div
+        className={`relative bg-yellow-400/10 text-white rounded-md px-3 py-2 text-right ml-auto min-h-[48px] pb-5 flex flex-col max-w-[80vw] sm:max-w-xs md:max-w-sm lg:max-w-md xl:max-w-lg 2xl:max-w-xl`}
+      >
         <div className="whitespace-pre-line break-words text-base pr-10">
           {message.data}
         </div>

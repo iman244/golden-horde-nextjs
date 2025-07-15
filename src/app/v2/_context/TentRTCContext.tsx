@@ -6,7 +6,6 @@ import React, {
   ReactNode,
   useCallback,
   useContext,
-  useEffect,
   useRef,
   useState,
 } from "react";
@@ -57,10 +56,6 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
     clearMessages,
   } = useRTCDataChannel();
 
-  useEffect(() => {
-    console.log("dcMessages", dcMessages);
-  }, [dcMessages]);
-
   const senddcMessage = useCallback(
     (message: string) => {
       registerSentMessage(message);
@@ -104,7 +99,6 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
     async (target_user: string) => {
       const pc = createPeerConnection();
       pc.onicecandidate = (ev) => {
-        console.log("pc.onicecandidate", ev);
         if (ev.candidate?.candidate != null && ev.candidate.candidate !== "") {
           sendSignal({
             type: "ice-candidate",
@@ -183,15 +177,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       answer: RTCSessionDescriptionInit;
     }) => {
       const pc = connectionsRef.current.get(from)?.pc;
-      console.log(
-        "handleAnswer connectionsRef.current",
-        connectionsRef.current
-      );
-      console.log("handleAnswer pc", pc);
-      console.log("handleAnswer from", from);
-      console.log("handleAnswer answer", answer);
       if (pc == undefined) return;
-      console.log("handleAnswer setRemote must had been done");
       await pc.setRemoteDescription(answer);
     },
     []

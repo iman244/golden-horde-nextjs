@@ -14,8 +14,10 @@ const RTCDataChannelPanel = () => {
     [setM]
   );
   const sendMessage = useCallback(() => {
-    senddcMessage(m);
-    setM("");
+    if (m.length > 0) {
+      senddcMessage(m);
+      setM("");
+    }
   }, [senddcMessage, m]);
 
   return (
@@ -38,6 +40,7 @@ const RTCDataChannelPanel = () => {
           placeholder="Type new message ..."
           className="flex-1 auth-input bg-black/60 border border-yellow-800 text-white"
           value={m}
+          autoComplete="off"
           onChange={onChangeM}
         />
         <button type="submit" className="px-2 text-white">
