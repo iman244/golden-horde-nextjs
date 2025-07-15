@@ -3,9 +3,8 @@ import React, { useEffect, useState } from "react";
 import { useHordesQuery } from "../hooks/useHordesQuery";
 import TentListItem from "./_components/TentListItem";
 import { useTentRTCContext } from "./_context/TentRTCContext";
-import { TentDrawerPanel } from "./_components/TentDrawer";
-import { TentDrawerToggleBar } from "./_components/TentDrawerToggleBar";
 import Drawer from "./_components/Drawer";
+import RTCPeerConnectionPanel from "./_components/RTCPeerConnectionPanel";
 
 const V2Page = () => {
   const hordes_q = useHordesQuery();
@@ -72,23 +71,7 @@ const V2Page = () => {
         <TentDrawerPanel tent={currentTent} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
       )} */}
       <Drawer>
-        {Array.from(connections).map(([user, { pc, dc }]) => (
-          <div key={user}>
-            <p>{user}</p>
-            <div className="flex flex-col gap-2">
-              <span>connectionState: {pc.connectionState}</span>
-              <span>signalingState: {pc.signalingState}</span>
-              <span>local: {pc.localDescription?.type}</span>
-              <span>remote: {pc.remoteDescription?.type}</span>
-              <input value={m} onChange={(e) => setM(e.target.value)} />
-              <button onClick={()=> {
-                console.log("m", m)
-                console.log("dc", dc)
-                dc?.send(m)
-              }} >send</button>
-            </div>
-          </div>
-        ))}
+        <RTCPeerConnectionPanel />
       </Drawer>
 
     </div>
@@ -96,3 +79,21 @@ const V2Page = () => {
 };
 
 export default V2Page;
+
+// {Array.from(connections).map(([user, { pc, dc }]) => (
+//   <div key={user}>
+//     <p>{user}</p>
+//     <div className="flex flex-col gap-2">
+//       <span>connectionState: {pc.connectionState}</span>
+//       <span>signalingState: {pc.signalingState}</span>
+//       <span>local: {pc.localDescription?.type}</span>
+//       <span>remote: {pc.remoteDescription?.type}</span>
+//       <input value={m} onChange={(e) => setM(e.target.value)} />
+//       <button onClick={()=> {
+//         console.log("m", m)
+//         console.log("dc", dc)
+//         dc?.send(m)
+//       }} >send</button>
+//     </div>
+//   </div>
+// ))}

@@ -6,6 +6,7 @@ import React, {
   ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -21,6 +22,11 @@ type connectionsType = Map<
   }
 >;
 
+type dcMessagesType = (
+  | (MessageEvent & { commType: "comming" })
+  | { data: string; commType: "sending"; timeStamp: number }
+)[];
+
 interface TentRTCContextType {
   connections: connectionsType;
   currentTentId: string | number | null;
@@ -30,6 +36,8 @@ interface TentRTCContextType {
   wsLogs: LogEntry[];
   wsLatency: number | null;
   status: (tentId: string | number) => WebSocketStatusType;
+  dcMessages: dcMessagesType;
+  senddcMessage: (message: string) => void;
 }
 
 const TentRTCContext = createContext<TentRTCContextType | undefined>(undefined);
@@ -43,7 +51,37 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   const connectionsRef = useRef<connectionsType>(new Map());
   const [connections, setConnections] = useState<connectionsType>(new Map());
+  const [dcMessages, setDcMessages] = useState<dcMessagesType>([]);
 
+  useEffect(() => {
+    console.log("dcMessages", dcMessages);
+  }, [dcMessages]);
+
+  const dconmessage = useCallback(
+    (ev: MessageEvent<any>) => {
+      console.log("ev", ev);
+      setDcMessages((pre) => [...pre, { ...ev, commType: "comming" }]);
+    },
+    [setDcMessages]
+  );
+  const senddcMessage = useCallback(
+    (message: string) => {
+      setDcMessages((pre) => [
+        ...pre,
+        {
+          data: message,
+          commType: "sending",
+          timeStamp: 0,
+        },
+      ]);
+      connectionsRef.current.forEach(({ dc }) => {
+        if (dc) {
+          dc.send(message);
+        }
+      });
+    },
+    [setDcMessages]
+  );
 
   const { onSignal, sendSignal, wsLatency, status, closeWebSocket, wsLogs } =
     useTentSignaling(currentTentId);
@@ -61,10 +99,11 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       //   addLog("Not connected to any tent");
       return;
     }
-    connections.forEach((v)=> {
-        v.pc.close()
-    })
-    connections.clear()
+    connections.forEach((v) => {
+      v.pc.close();
+    });
+    connections.clear();
+    setDcMessages([]);
     closeWebSocket();
     setCurrentTentId(null);
   }, [currentTentId, closeWebSocket, connections]);
@@ -85,10 +124,11 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
           });
         }
       };
-      const dc = pc.createDataChannel(`${username!}_` + "target_user");
+      const dc = pc.createDataChannel(`${username!}_` + target_user);
+      dc.onmessage = dconmessage;
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      connectionsRef.current.set(target_user, { pc, dc })
+      connectionsRef.current.set(target_user, { pc, dc });
       setConnections((pre) => {
         const newMap = new Map(pre);
         newMap.set(target_user, { pc, dc });
@@ -116,7 +156,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       await pc.setRemoteDescription(offer);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      connectionsRef.current.set(from, { pc })
+      connectionsRef.current.set(from, { pc });
       setConnections((prev) => {
         const newMap = new Map(prev);
         newMap.set(from, { pc });
@@ -124,11 +164,8 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       });
       pc.ondatachannel = (event: RTCDataChannelEvent) => {
         const dc = event.channel;
-        dc.onmessage = (ev => {
-            console.log("ev", ev)
-            window.alert(ev.data)
-        })
-        connectionsRef.current.set(from, { pc, dc })
+        dc.onmessage = dconmessage;
+        connectionsRef.current.set(from, { pc, dc });
         setConnections((prev) => {
           const newMap = new Map(prev);
           newMap.set(from, { pc, dc });
@@ -142,7 +179,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
         target_user: from,
       });
     },
-    [sendSignal, username]
+    [sendSignal, username, dconmessage]
   );
 
   const handleAnswer = useCallback(
@@ -154,28 +191,43 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       answer: RTCSessionDescriptionInit;
     }) => {
       const pc = connectionsRef.current.get(from)?.pc;
-      console.log("handleAnswer connectionsRef.current", connectionsRef.current)
-      console.log("handleAnswer pc", pc)
-      console.log("handleAnswer from", from)
-      console.log("handleAnswer answer", answer)
+      console.log(
+        "handleAnswer connectionsRef.current",
+        connectionsRef.current
+      );
+      console.log("handleAnswer pc", pc);
+      console.log("handleAnswer from", from);
+      console.log("handleAnswer answer", answer);
       if (pc == undefined) return;
-      console.log("handleAnswer setRemote must had been done")
+      console.log("handleAnswer setRemote must had been done");
       await pc.setRemoteDescription(answer);
     },
     []
   );
 
-  const handleUserLeave = useCallback(async ({username}: {username: string}) => {
-    connectionsRef.current.get(username)?.pc.close()
-    connectionsRef.current.delete(username)
-    setConnections(new Map(connectionsRef.current))
-  }, [])
+  const handleUserLeave = useCallback(
+    async ({ username }: { username: string }) => {
+      connectionsRef.current.get(username)?.pc.close();
+      connectionsRef.current.delete(username);
+      setConnections(new Map(connectionsRef.current));
+    },
+    []
+  );
 
-  const handleIceCandidateMsg = useCallback(async ({ from, iceCandidate }: { from: string; iceCandidate: RTCIceCandidateInit }) => {
-    const pc = connectionsRef.current.get(from)?.pc
-    if(!pc) return;
-    await pc.addIceCandidate(iceCandidate)
-  }, [])
+  const handleIceCandidateMsg = useCallback(
+    async ({
+      from,
+      iceCandidate,
+    }: {
+      from: string;
+      iceCandidate: RTCIceCandidateInit;
+    }) => {
+      const pc = connectionsRef.current.get(from)?.pc;
+      if (!pc) return;
+      await pc.addIceCandidate(iceCandidate);
+    },
+    []
+  );
 
   const joinTent = useCallback(
     async (tentId: string | number) => {
@@ -205,34 +257,34 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
             break;
           case "offer":
             await handleOffer({
-                offer: { type: "offer", sdp: msg.sdp! },
-                from: msg.username,
-              });
+              offer: { type: "offer", sdp: msg.sdp! },
+              from: msg.username,
+            });
             break;
           case "answer":
             await handleAnswer({
-                from: msg.username,
-                answer: {
-                  type: "answer",
-                  sdp: msg.sdp!,
-                },
-              });
+              from: msg.username,
+              answer: {
+                type: "answer",
+                sdp: msg.sdp!,
+              },
+            });
             break;
           case "ice-candidate":
             await handleIceCandidateMsg({
-                from: msg.username,
-                iceCandidate: {
-                   candidate: msg.candidate,
-                   sdpMid: msg.sdpMid,
-                   sdpMLineIndex: msg.sdpMLineIndex ,
-                }
+              from: msg.username,
+              iceCandidate: {
+                candidate: msg.candidate,
+                sdpMid: msg.sdpMid,
+                sdpMLineIndex: msg.sdpMLineIndex,
+              },
             });
             break;
           case "user_joined":
-            console.log("user_joined is not handling yet")
+            console.log("user_joined is not handling yet");
             break;
           case "user_left":
-            (async () => await handleUserLeave(msg))()
+            (async () => await handleUserLeave(msg))();
             break;
           case "ping":
           case "pong":
@@ -254,7 +306,8 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       handleCreatingConnections,
       handleOffer,
       handleAnswer,
-      handleUserLeave
+      handleUserLeave,
+      handleIceCandidateMsg,
     ]
   );
 
@@ -278,6 +331,8 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
         wsLatency,
         status,
         currentTentId,
+        dcMessages,
+        senddcMessage,
       }}
     >
       {children}
