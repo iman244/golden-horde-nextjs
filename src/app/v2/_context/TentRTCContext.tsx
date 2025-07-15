@@ -65,8 +65,10 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
     (message: string) => {
       registerSentMessage(message);
       connectionsRef.current.forEach(({ dc }) => {
-        if (dc) {
+        if (dc && dc.readyState == 'open') {
           dc.send(message);
+        } else {
+            window.alert("dc is not connect")
         }
       });
     },

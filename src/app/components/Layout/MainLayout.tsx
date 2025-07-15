@@ -9,7 +9,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     <div
       style={{
         display: "flex",
-        minHeight: "100vh",
+        // minHeight: "100vh",
         background: "linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%)",
         fontFamily:
           'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
