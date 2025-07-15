@@ -14,6 +14,8 @@ import { useTentSignaling } from "../_hooks/useTentSignaling";
 import { createPeerConnection, WebSocketStatusType } from "../_utils";
 import { TentSignalingMessages } from "../_types";
 import { useAuth } from "@/app/context/AuthContext";
+import { useRTCDataChannel, RTCDataChannelMessageType } from "../_hooks/useRTCDataChannel";
+
 type connectionsType = Map<
   string,
   {
@@ -21,11 +23,6 @@ type connectionsType = Map<
     dc?: RTCDataChannel;
   }
 >;
-
-type dcMessagesType = (
-  | (MessageEvent & { commType: "comming" })
-  | { data: string; commType: "sending"; timeStamp: number }
-)[];
 
 interface TentRTCContextType {
   connections: connectionsType;
@@ -36,7 +33,7 @@ interface TentRTCContextType {
   wsLogs: LogEntry[];
   wsLatency: number | null;
   status: (tentId: string | number) => WebSocketStatusType;
-  dcMessages: dcMessagesType;
+  dcMessages: RTCDataChannelMessageType[];
   senddcMessage: (message: string) => void;
 }
 
@@ -51,36 +48,29 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   const connectionsRef = useRef<connectionsType>(new Map());
   const [connections, setConnections] = useState<connectionsType>(new Map());
-  const [dcMessages, setDcMessages] = useState<dcMessagesType>([]);
+
+  // --- useRTCDataChannel integration ---
+  const {
+    dcMessages,
+    getOnMessageHandler,
+    registerSentMessage,
+    clearMessages,
+  } = useRTCDataChannel();
 
   useEffect(() => {
     console.log("dcMessages", dcMessages);
   }, [dcMessages]);
 
-  const dconmessage = useCallback(
-    (ev: MessageEvent<any>) => {
-      console.log("ev", ev);
-      setDcMessages((pre) => [...pre, { ...ev, commType: "comming" }]);
-    },
-    [setDcMessages]
-  );
   const senddcMessage = useCallback(
     (message: string) => {
-      setDcMessages((pre) => [
-        ...pre,
-        {
-          data: message,
-          commType: "sending",
-          timeStamp: 0,
-        },
-      ]);
+      registerSentMessage(message);
       connectionsRef.current.forEach(({ dc }) => {
         if (dc) {
           dc.send(message);
         }
       });
     },
-    [setDcMessages]
+    [registerSentMessage]
   );
 
   const { onSignal, sendSignal, wsLatency, status, closeWebSocket, wsLogs } =
@@ -103,10 +93,10 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       v.pc.close();
     });
     connections.clear();
-    setDcMessages([]);
+    clearMessages();
     closeWebSocket();
     setCurrentTentId(null);
-  }, [currentTentId, closeWebSocket, connections]);
+  }, [currentTentId, closeWebSocket, connections, clearMessages]);
 
   const handleCreatingConnections = useCallback(
     async (target_user: string) => {
@@ -125,7 +115,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
         }
       };
       const dc = pc.createDataChannel(`${username!}_` + target_user);
-      dc.onmessage = dconmessage;
+      dc.onmessage = getOnMessageHandler(target_user);
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       connectionsRef.current.set(target_user, { pc, dc });
@@ -141,7 +131,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
         target_user,
       });
     },
-    [sendSignal, username]
+    [sendSignal, username, getOnMessageHandler]
   );
 
   const handleOffer = useCallback(
@@ -164,7 +154,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       });
       pc.ondatachannel = (event: RTCDataChannelEvent) => {
         const dc = event.channel;
-        dc.onmessage = dconmessage;
+        dc.onmessage = getOnMessageHandler(from);
         connectionsRef.current.set(from, { pc, dc });
         setConnections((prev) => {
           const newMap = new Map(prev);
@@ -179,7 +169,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
         target_user: from,
       });
     },
-    [sendSignal, username, dconmessage]
+    [sendSignal, username, getOnMessageHandler]
   );
 
   const handleAnswer = useCallback(

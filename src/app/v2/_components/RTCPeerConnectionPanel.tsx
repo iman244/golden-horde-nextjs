@@ -35,8 +35,8 @@ const RTCPeerConnectionPanel = () => {
         {dcMessages.map((me, index) => (
           <div key={index}>
             <div>
-              {me.commType == "comming"
-                ? me.origin
+              {me.type == "received"
+                ? me.from[0].toUpperCase()
                 : username![0].toUpperCase()}
             </div>
             <div>{JSON.stringify(me.data, null, 2)}</div>
