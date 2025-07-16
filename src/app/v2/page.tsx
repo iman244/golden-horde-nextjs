@@ -13,7 +13,7 @@ import clsx from "clsx";
 const V2Page = () => {
   const hordes_q = useHordesQuery();
   const hordes = hordes_q.data?.data || [];
-  const { logs, wsLogs } = useTentRTCContext();
+  const { logsMap, wsLogs, connections, connectionsRef } = useTentRTCContext();
   const [tab, setTab] = useState<"RTCDataChannel" | "Logs">("RTCDataChannel");
 
   const openRTCDataChannel = useCallback(() => setTab("RTCDataChannel"), []);
@@ -40,6 +40,14 @@ const V2Page = () => {
             {horde.name[0].toUpperCase()}
           </button>
         ))}
+        <button
+          onClick={() => {
+            console.log("connections", connections);
+            console.log("connectionsRef", connectionsRef);
+          }}
+        >
+          log
+        </button>
       </div>
 
       {/* Channel List: Tents */}
@@ -74,7 +82,12 @@ const V2Page = () => {
             </button>
           )}
         >
-          <LogsContent logs={{ system: logs, ws: wsLogs }} />
+          <LogsContent
+            logs={{
+              ...Object.fromEntries(Array.from(logsMap.entries())),
+              ws: wsLogs,
+            }}
+          />
         </Drawer>
         <Drawer
           openUI={(onOpen) => (
@@ -93,14 +106,22 @@ const V2Page = () => {
       <div className="flex-1 hidden sm:flex flex-col">
         <div className="p-2 flex items-center justify-center gap-4">
           <button
-            className={clsx("p-3 rounded-full border  border-yellow-200 cursor-pointer", tab == 'Logs' ? "bg-yellow-400 text-black" : "text-yellow-400")}
+            className={clsx(
+              "p-3 rounded-full border  border-yellow-200 cursor-pointer",
+              tab == "Logs" ? "bg-yellow-400 text-black" : "text-yellow-400"
+            )}
             aria-label="Open Drawer"
             onClick={openLogs}
           >
             <FaTools size={20} />
           </button>
           <button
-            className={clsx("p-3 rounded-full border  border-yellow-200 cursor-pointer", tab == 'RTCDataChannel' ? "bg-yellow-400 text-black" : "text-yellow-400")}
+            className={clsx(
+              "p-3 rounded-full border  border-yellow-200 cursor-pointer",
+              tab == "RTCDataChannel"
+                ? "bg-yellow-400 text-black"
+                : "text-yellow-400"
+            )}
             aria-label="Open Drawer"
             onClick={openRTCDataChannel}
           >
@@ -108,7 +129,14 @@ const V2Page = () => {
           </button>
         </div>
         <div className="flex-1 flex flex-col">
-          {tab == "Logs" && <LogsContent logs={{ system: logs, ws: wsLogs }} />}
+          {tab == "Logs" && (
+            <LogsContent
+              logs={{
+                ...Object.fromEntries(Array.from(logsMap.entries())),
+                ws: wsLogs,
+              }}
+            />
+          )}
           {tab == "RTCDataChannel" && <RTCDataChannelPanel />}
         </div>
       </div>

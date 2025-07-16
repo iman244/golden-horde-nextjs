@@ -6,15 +6,15 @@ interface LogsModalProps {
 }
 
 const LogsContent: React.FC<LogsModalProps> = ({ logs }) => {
-  const [activeTab, setActiveTab] = useState<string | null>(null);
+    
   const tabNames = Object.keys(logs);
+  const [activeTab, setActiveTab] = useState<string | null>(tabNames.length > 0 ? tabNames[0] : null);
 
   return (
     <div
       style={{
         flex: 1,
         background: "rgba(24,24,27,0.98)",
-        zIndex: 9999,
         height: "100%"
       }}
     >
@@ -23,10 +23,9 @@ const LogsContent: React.FC<LogsModalProps> = ({ logs }) => {
           background: "#18181b",
           padding: 24,
           color: "#f3f3f3",
-          maxWidth: 700,
           boxShadow: "0 4px 32px 0 rgba(0,0,0,0.18)",
           border: "1px solid #23272f",
-          height: "100%",
+          minHeight: "100%",
           display: 'flex',
           flexDirection: 'column'
         }}
