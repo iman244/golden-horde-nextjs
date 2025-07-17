@@ -16,7 +16,7 @@ COPY . .
 
 ENV NODE_ENV=production
 ENV NEXT_PUBLIC_DJANGO_ADMIN_PROTOCOL=http
-ENV NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN=194.60.231.201
+ENV NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN=django.golden-horde.ir
 
 # 6. Build the Next.js app
 RUN npm run build
