@@ -6,7 +6,7 @@ WORKDIR /app
 
 # 3. Copy package.json and package-lock.json
 COPY package.json ./
-COPY package-lock.json ./
+# COPY package-lock.json ./
 
 # 4. Install dependencies
 RUN npm ci
@@ -27,7 +27,7 @@ ENV NODE_ENV=production
 
 # Copy only necessary files from builder
 COPY --from=builder /app/package.json ./
-COPY --from=builder /app/package-lock.json ./
+# COPY --from=builder /app/package-lock.json ./
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.js ./
