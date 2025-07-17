@@ -15,5 +15,4 @@ export type TentSignalingMessages =
   | { type: "connect_info"; username: string; other_users: string[] }
   | { type: "user_joined"; tent_id: string; username: string }
   | { type: "user_left"; tent_id: string; username: string }
-  | { type: "failed"; username: string; target_user: string };
 

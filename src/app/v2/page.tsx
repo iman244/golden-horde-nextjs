@@ -13,7 +13,7 @@ import clsx from "clsx";
 const V2Page = () => {
   const hordes_q = useHordesQuery();
   const hordes = hordes_q.data?.data || [];
-  const { logsMap, wsLogs, connections, connectionsRef } = useTentRTCContext();
+  const { logsMap, wsLogs } = useTentRTCContext();
   const [tab, setTab] = useState<"RTCDataChannel" | "Logs">("RTCDataChannel");
 
   const openRTCDataChannel = useCallback(() => setTab("RTCDataChannel"), []);
@@ -40,14 +40,14 @@ const V2Page = () => {
             {horde.name[0].toUpperCase()}
           </button>
         ))}
-        <button
+        {/* <button
           onClick={() => {
             console.log("connections", connections);
             console.log("connectionsRef", connectionsRef);
           }}
         >
           log
-        </button>
+        </button> */}
       </div>
 
       {/* Channel List: Tents */}

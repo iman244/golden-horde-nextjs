@@ -2,7 +2,6 @@ import { Tent as TentType } from "@/app/data.types";
 import React, { FC, useMemo } from "react";
 import { useTentsLiveUsers } from "../_context/TentsLiveUsersContext";
 import { useTentRTCContext } from "../_context/TentRTCContext";
-import LogsModal from "./LogsModal";
 import TentJoinLeaveButton from "./TentJoinLeaveButton";
 import clsx from "clsx";
 import TentInfo from "./TentInfo";
@@ -11,7 +10,7 @@ import { getTentButtonLabel } from "../_utils";
 
 const Tent: FC<{ tent: TentType }> = ({ tent }) => {
   const { getParticipantsByTentId } = useTentsLiveUsers();
-  const { joinTent, leaveTent, status, logs, wsLogs } =
+  const { joinTent, leaveTent, status} =
     useTentRTCContext();
   const tentStatus = useMemo(() => status(tent.id), [status, tent.id]);
 
@@ -38,9 +37,9 @@ const Tent: FC<{ tent: TentType }> = ({ tent }) => {
       >
         <TentInfo tent={tent} />
         <div className="v2-tent-actions">
-          {tentStatus == "Open" && (
+          {/* {tentStatus == "Open" && (
             <LogsModal logs={{ system: logs, ws: wsLogs }} />
-          )}
+          )} */}
           <TentJoinLeaveButton
             onClick={onTentClick}
             className={clsx(
