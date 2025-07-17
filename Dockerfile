@@ -15,7 +15,6 @@ RUN npm install
 COPY . .
 
 # 6. Build the Next.js app
-ENV NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN=goldenhorde-django.liara.run
 RUN npm run build
 
 # 7. Production image, copy built assets and install only production dependencies
