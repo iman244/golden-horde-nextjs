@@ -105,9 +105,23 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const onconnectionstatechange = useCallback(
     (user: string, pc: RTCPeerConnection) => async (ev: Event) => {
       console.log("onconnectionstatechange ev", ev);
-      addLog(user, `Connection state changed: ${pc.connectionState}`, "info");
+      const { connectionState } = pc;
+      addLog(
+        user,
+        `Connection state changed: ${connectionState}`,
+        connectionState == "failed" || connectionState == "disconnected"
+          ? "error"
+          : "info"
+      );
+      if (connectionState == "failed") {
+        sendSignal({
+          type: "failed",
+          username: username!,
+          target_user: user,
+        });
+      }
     },
-    [addLog]
+    [addLog, sendSignal, username]
   );
 
   const onsignalingstatechange = useCallback(
@@ -227,7 +241,6 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   const handleCreatingConnections = useCallback(
     async (target_user: string) => {
-      removeLog(target_user);
       addLog(target_user, `Creating connection to ${target_user}`, "info");
       const pc = createAndSetupPeerConnection(target_user);
       const dc = pc.createDataChannel(`${username!}_` + target_user);
@@ -253,7 +266,6 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       username,
       getOnMessageHandler,
       addLog,
-      removeLog,
       createAndSetupPeerConnection,
     ]
   );
@@ -409,8 +421,13 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
         switch (msg.type) {
           case "connect_info":
             msg.other_users.forEach(async (target_user) => {
+              removeLog(target_user);
               await handleCreatingConnections(target_user);
             });
+            break;
+          case "failed":
+            addLog(msg.username, "Connection Failed, try to reconnecting...");
+            await handleCreatingConnections(msg.username);
             break;
           case "offer":
             await handleOffer({
@@ -455,6 +472,8 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       setCurrentTentId(tentId);
     },
     [
+      addLog,
+      removeLog,
       clearLogs,
       leaveTent,
       currentTentId,
