@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 
 const protocol = process.env.NEXT_PUBLIC_DJANGO_ADMIN_PROTOCOL || "http";
-const domain = process.env.NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN || "localhost:3000";
+const domain = process.env.NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN || "localhost:8000";
 
 export function useHordesQuery() {
   const { token, logout, authStatus } = useAuth();

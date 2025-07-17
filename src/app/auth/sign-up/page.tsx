@@ -7,7 +7,7 @@ import type { AxiosError } from "axios";
 import AuthBackButton from "@/app/components/AuthBackButton";
 
 const protocol = process.env.NEXT_PUBLIC_DJANGO_ADMIN_PROTOCOL || "http";
-const domain = process.env.NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN || "localhost:3000";
+const domain = process.env.NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN || "localhost:8000";
 const SIGN_UP_URL = `${protocol}://${domain}/api/membership/sign-up/`;
 
 export default function SignUpPage() {

@@ -5,7 +5,7 @@ import axios from "axios";
 import AuthBackButton from "@/app/components/AuthBackButton";
 
 const protocol = process.env.NEXT_PUBLIC_DJANGO_ADMIN_PROTOCOL || "http";
-const domain = process.env.NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN || "localhost:3000";
+const domain = process.env.NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN || "localhost:8000";
 const FORGOT_PASSWORD_URL = `${protocol}://${domain}/api/membership/forgot-password/`;
 
 export default function ForgotPasswordPage() {
