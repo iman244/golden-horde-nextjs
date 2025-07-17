@@ -14,6 +14,10 @@ RUN npm install
 # 5. Copy the rest of the application code
 COPY . .
 
+ENV NODE_ENV=production
+ENV NEXT_PUBLIC_DJANGO_ADMIN_PROTOCOL=http
+ENV NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN=192.168.1.100
+
 # 6. Build the Next.js app
 RUN npm run build
 
@@ -21,10 +25,6 @@ RUN npm run build
 FROM node:18-alpine AS runner
 
 WORKDIR /app
-
-ENV NODE_ENV=production
-ENV NEXT_PUBLIC_DJANGO_ADMIN_PROTOCOL=http
-ENV NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN=192.168.1.100
 
 # Copy only necessary files from builder
 COPY --from=builder /app/package.json ./
