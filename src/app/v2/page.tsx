@@ -9,6 +9,7 @@ import { FaTools } from "react-icons/fa";
 import LogsContent from "./_components/LogsContent";
 import { useTentRTCContext } from "./_context/TentRTCContext";
 import clsx from "clsx";
+import Audios from "./_components/Audios";
 
 const V2Page = () => {
   const hordes_q = useHordesQuery();
@@ -61,6 +62,8 @@ const V2Page = () => {
           ))}
         </div>
       </div>
+
+      <Audios />
 
       {/* Drawer Toggle Bar: Only show when closed and on mobile */}
       {/* {isMobile && currentTent && !drawerOpen && (

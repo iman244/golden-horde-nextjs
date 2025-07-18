@@ -66,9 +66,9 @@ export default function Home() {
     }
   }, [router]);
 
-  useEffect(() => {
-    console.log("tentUsersByTent", tentUsersByTent);
-  }, [tentUsersByTent]);
+//   useEffect(() => {
+//     console.log("tentUsersByTent", tentUsersByTent);
+//   }, [tentUsersByTent]);
 
   useEffect(() => {
     if (authError && redirectCountdown > 0) {

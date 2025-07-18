@@ -6,6 +6,7 @@ import React, {
   ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -18,14 +19,14 @@ import {
   RTCDataChannelMessageType,
 } from "../_hooks/useRTCDataChannel";
 import { LogsMap, useKeyedLogs } from "@/app/v2/_hooks/useKeyedLogs";
+// import useStream from "../_hooks/useStream";
 
-type connectionsType = Map<
-  string,
-  {
-    pc: RTCPeerConnection;
-    dc?: RTCDataChannel;
-  }
->;
+type userRTCData = {
+  pc: RTCPeerConnection;
+  dc?: RTCDataChannel;
+  stream?: MediaStream;
+};
+type connectionsType = Map<string, userRTCData>;
 
 interface TentRTCContextType {
   connections: connectionsType;
@@ -49,11 +50,45 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [currentTentId, setCurrentTentId] = useState<string | number | null>(
     null
   );
+  //   const { streamS } = useStream()
   const connectionsRef = useRef<connectionsType>(new Map());
   const [connections, setConnections] = useState<connectionsType>(new Map());
+
+  const updateUserData = useCallback(
+    (target_user: string, newData: userRTCData) => {
+      connectionsRef.current.set(target_user, newData);
+      setConnections((preMap) => {
+        const newMap = new Map(preMap);
+        newMap.set(target_user, newData);
+        return newMap;
+      });
+    },
+    []
+  );
+
   const pendingGeneratedICECandidateMessagesRef = useRef<
     Map<string, Extract<TentSignalingMessages, { type: "ice-candidate" }>[]>
   >(new Map());
+
+  useEffect(() => {
+    pendingGeneratedICECandidateMessagesRef.current.clear();
+  }, [currentTentId]);
+
+  const streamRef = useRef<MediaStream>(null);
+  const addTrack = useCallback(
+    async (target_user: string, pc: RTCPeerConnection) => {
+      if (!streamRef.current) {
+        streamRef.current = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+      }
+      const tracks = streamRef.current.getTracks();
+      tracks.forEach((t) => pc.addTrack(t, streamRef.current!));
+      addLog(target_user, "Add Tracks");
+      console.log("addTrack tracks", tracks);
+    },
+    [addLog]
+  );
 
   const {
     dcMessages,
@@ -146,7 +181,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   const onicecandidateerror = useCallback(
     (user: string) => (ev: RTCPeerConnectionIceErrorEvent) => {
-      console.log("onicecandidateerror ev", ev);
+      //   console.log("onicecandidateerror ev", ev);
       addLog(
         user,
         `ICE candidate error: code=${ev.errorCode}, text=${ev.errorText}, url=${ev.url}, address=${ev.address}, port=${ev.port}`,
@@ -212,8 +247,21 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
           );
           sendSignal(m);
         });
+      pendingGeneratedICECandidateMessagesRef.current.set(target_user, []);
     },
     [addLog, sendSignal]
+  );
+
+  const ontrack = useCallback(
+    (target_user: string, pc: RTCPeerConnection) =>
+      async (ev: RTCTrackEvent) => {
+        const pre = connectionsRef.current.get(target_user);
+        const user_stream = ev.streams[0];
+        console.log("ontrack ev", ev);
+        addLog(target_user, "Track Received");
+        updateUserData(target_user, { pc, ...pre, stream: user_stream });
+      },
+    [updateUserData, addLog]
   );
 
   // Helper to create and setup a peer connection with event handlers (excluding data channel logic)
@@ -245,14 +293,12 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       const pc = createAndSetupPeerConnection(target_user);
       const dc = pc.createDataChannel(`${username!}_` + target_user);
       dc.onmessage = getOnMessageHandler(target_user);
+      pc.ontrack = ontrack(target_user, pc);
+      await addTrack(target_user, pc);
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      connectionsRef.current.set(target_user, { pc, dc });
-      setConnections((pre) => {
-        const newMap = new Map(pre);
-        newMap.set(target_user, { pc, dc });
-        return newMap;
-      });
+      const preD = connectionsRef.current.get(target_user);
+      updateUserData(target_user, { ...preD, pc, dc });
       addLog(target_user, `Sending offer to ${target_user}`, "info");
       sendSignal({
         type: "offer",
@@ -262,11 +308,14 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       });
     },
     [
+      updateUserData,
       sendSignal,
       username,
       getOnMessageHandler,
       addLog,
       createAndSetupPeerConnection,
+      addTrack,
+      ontrack,
     ]
   );
 
@@ -281,24 +330,40 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       removeLog(from);
       addLog(from, `Received offer from ${from}`, "info");
       const pc = createAndSetupPeerConnection(from);
-      await pc.setRemoteDescription(offer);
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      connectionsRef.current.set(from, { pc });
-      setConnections((prev) => {
-        const newMap = new Map(prev);
-        newMap.set(from, { pc });
-        return newMap;
-      });
+      pc.ontrack = ontrack(from, pc);
+      try {
+        addLog(
+          from,
+          `Setting remote description (offer): ${JSON.stringify(offer)}`,
+          "info"
+        );
+        await pc.setRemoteDescription(offer);
+      } catch (err) {
+        addLog(from, `Error setting remote description: ${err}`, "error");
+        return;
+      }
+      try {
+        addLog(from, `Calling addTrack for ${from}`, "info");
+        await addTrack(from, pc);
+      } catch (err) {
+        addLog(from, `Error in addTrack: ${err}`, "error");
+      }
+      let answer;
+      try {
+        answer = await pc.createAnswer();
+        addLog(from, `Created answer SDP: ${JSON.stringify(answer)}`, "info");
+        await pc.setLocalDescription(answer);
+      } catch (err) {
+        addLog(from, `Error creating or setting answer: ${err}`, "error");
+        return;
+      }
+      const preD = connectionsRef.current.get(from);
+      updateUserData(from, { ...preD, pc });
       pc.ondatachannel = (event: RTCDataChannelEvent) => {
         const dc = event.channel;
         dc.onmessage = getOnMessageHandler(from);
-        connectionsRef.current.set(from, { pc, dc });
-        setConnections((prev) => {
-          const newMap = new Map(prev);
-          newMap.set(from, { pc, dc });
-          return newMap;
-        });
+        const preD = connectionsRef.current.get(from);
+        updateUserData(from, { ...preD, pc, dc });
         addLog(from, `Data channel established with ${from}`, "info");
       };
       addLog(from, `Sending answer to ${from}`, "info");
@@ -311,6 +376,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       sendIceCandidates(from);
     },
     [
+      updateUserData,
       sendSignal,
       username,
       getOnMessageHandler,
@@ -318,6 +384,8 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       removeLog,
       sendIceCandidates,
       createAndSetupPeerConnection,
+      ontrack,
+      addTrack,
     ]
   );
 
