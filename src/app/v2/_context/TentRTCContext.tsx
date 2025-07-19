@@ -19,7 +19,7 @@ import {
   RTCDataChannelMessageType,
 } from "../_hooks/useRTCDataChannel";
 import { LogsMap, useKeyedLogs } from "@/app/v2/_hooks/useKeyedLogs";
-import useStream from "../_hooks/useStream";
+import useStream, { MediaErrorType } from "../_hooks/useStream";
 // import useStream from "../_hooks/useStream";
 
 type userRTCData = {
@@ -41,9 +41,10 @@ interface TentRTCContextType {
   status: (tentId: string | number) => WebSocketStatusType;
   dcMessages: RTCDataChannelMessageType[];
   senddcMessage: (message: string) => void;
-  mediaError: string | null;
+  mediaError: MediaErrorType | null;
   clearMediaError: () => void;
- }
+  retryAddTrack: () => Promise<void>;
+}
 
 const TentRTCContext = createContext<TentRTCContextType | undefined>(undefined);
 
@@ -254,7 +255,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
   );
 
   // Helper to create and setup a peer connection with event handlers (excluding data channel logic)
-  const createAndSetupPeerConnection = useCallback(
+  const createPeerConnectionWithHandlers = useCallback(
     (target_user: string) => {
       const pc = createPeerConnection();
       pc.onicecandidate = onicecandidate(target_user, pc);
@@ -276,22 +277,64 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
     ]
   );
 
-  const handleCreatingConnections = useCallback(
+  // Utility to wait for signalingState to become 'stable'
+  const waitForStable: (pc: RTCPeerConnection) => Promise<void> = useCallback(
+    async (pc) => {
+      return new Promise((resolve) => {
+        if (pc.signalingState === "stable") {
+          resolve();
+          return;
+        }
+        const handler = () => {
+          if (pc.signalingState === "stable") {
+            pc.removeEventListener("signalingstatechange", handler);
+            resolve();
+          }
+        };
+        pc.addEventListener("signalingstatechange", handler);
+      });
+    },
+    []
+  );
+
+  const negotiateConnection = useCallback(
     async (target_user: string) => {
-      addLog(target_user, `Creating connection to ${target_user}`, "info");
-      const pc = createAndSetupPeerConnection(target_user);
-      const dc = pc.createDataChannel(`${username!}_` + target_user);
-      dc.onmessage = getOnMessageHandler(target_user);
+      let pc = connectionsRef.current.get(target_user)?.pc;
+      let dc = connectionsRef.current.get(target_user)?.dc;
+      if (!pc) {
+        addLog(target_user, `Creating connection to ${target_user}`, "info");
+        pc = createPeerConnectionWithHandlers(target_user);
+      } else {
+        addLog(target_user, `starting renegotiation with ${target_user}`);
+      }
+      // Only create a new data channel if one does not exist
+      if (!dc) {
+        dc = pc.createDataChannel(`${username!}_` + target_user);
+        dc.onmessage = getOnMessageHandler(target_user);
+      }
       pc.ontrack = ontrack(target_user, pc);
       try {
         addLog(target_user, `Calling addTrack for ${target_user}`, "info");
         await addTrack(target_user, pc);
+        console.log("negotiateConnection pc.getSenders()", pc.getSenders());
       } catch (err) {
         console.error(
           target_user,
-          `Error in handleCreatingConnections addTrack: ${err}`
+          `Error in negotiateConnection addTrack: ${err}`
         );
         addLog(target_user, `Error in addTrack: ${err}`, "error");
+        const pre = connectionsRef.current.get(target_user)
+        updateUserData(target_user, {...pre, pc, dc})
+        return;
+      }
+      // Wait for signalingState to be stable before creating an offer
+      if (pc.signalingState !== "stable") {
+        addLog(
+          target_user,
+          `Waiting for signalingState to become stable before creating offer`,
+          "info"
+        );
+        await waitForStable(pc);
       }
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -311,7 +354,8 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       username,
       getOnMessageHandler,
       addLog,
-      createAndSetupPeerConnection,
+      createPeerConnectionWithHandlers,
+      waitForStable,
       addTrack,
       ontrack,
     ]
@@ -325,11 +369,11 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       from: string;
       offer: RTCSessionDescriptionInit;
     }) => {
-      removeLog(from);
       addLog(from, `Received offer from ${from}`, "info");
       let pc = connectionsRef.current.get(from)?.pc;
       if (!pc) {
-        pc = createAndSetupPeerConnection(from);
+        removeLog(from);
+        pc = createPeerConnectionWithHandlers(from);
       } else {
         addLog(from, `${from} start renegotiation`);
       }
@@ -351,7 +395,10 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       } catch (err) {
         console.error(from, `Error in handleOffer addTrack: ${err}`);
         addLog(from, `Error in addTrack: ${err}`, "error");
+        const pre  = connectionsRef.current.get(from)
+        updateUserData(from, {...pre, pc})
       }
+
       let answer;
       try {
         answer = await pc.createAnswer();
@@ -387,7 +434,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       addLog,
       removeLog,
       sendIceCandidates,
-      createAndSetupPeerConnection,
+      createPeerConnectionWithHandlers,
       ontrack,
       addTrack,
     ]
@@ -419,13 +466,15 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
   );
 
   const handleUserLeave = useCallback(
-    async ({ username }: { username: string }) => {
-      connectionsRef.current.get(username)?.pc.close();
-      connectionsRef.current.delete(username);
-      setConnections(new Map(connectionsRef.current));
-      addLog(username, `${username} left and connection closed`, "info");
+    async ({ user }: { user: string }) => {
+      if (user !== username) {
+        connectionsRef.current.get(user)?.pc.close();
+        connectionsRef.current.delete(user);
+        setConnections(new Map(connectionsRef.current));
+        addLog(user, `${user} left and connection closed`, "info");
+      }
     },
-    [addLog]
+    [addLog, username]
   );
 
   const handleIceCandidateMsg = useCallback(
@@ -494,12 +543,12 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
           case "connect_info":
             msg.other_users.forEach(async (target_user) => {
               removeLog(target_user);
-              await handleCreatingConnections(target_user);
+              await negotiateConnection(target_user);
             });
             break;
           case "failed":
             addLog(msg.username, "Connection Failed, try to reconnecting...");
-            await handleCreatingConnections(msg.username);
+            await negotiateConnection(msg.username);
             break;
           case "offer":
             await handleOffer({
@@ -530,7 +579,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
             console.log("user_joined is not handling yet");
             break;
           case "user_left":
-            await handleUserLeave(msg);
+            await handleUserLeave({ user: msg.username });
             break;
           case "ping":
           case "pong":
@@ -550,13 +599,36 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       leaveTent,
       currentTentId,
       onSignal,
-      handleCreatingConnections,
+      negotiateConnection,
       handleOffer,
       handleAnswer,
       handleUserLeave,
       handleIceCandidateMsg,
     ]
   );
+
+  const retryAddTrack = useCallback(async () => {
+    console.log("retryAddTrack is running")
+    console.log("connectionsRef", connectionsRef.current)
+    for (const [target_user, { pc }] of connectionsRef.current.entries()) {
+      if (!pc) {
+        addLog(
+          target_user,
+          "No peer connection found for retrying addTrack",
+          "error"
+        );
+        continue;
+      }
+      try {
+        addLog(target_user, "Retrying addTrack...", "info");
+        await addTrack(target_user, pc);
+        addLog(target_user, "addTrack retry succeeded", "info");
+        await negotiateConnection(target_user);
+      } catch (err) {
+        addLog(target_user, `addTrack retry failed: ${err}`, "error");
+      }
+    }
+  }, [addTrack, addLog, negotiateConnection]);
 
   // Cleanup on unmount
   React.useEffect(() => {
@@ -582,7 +654,8 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
         dcMessages,
         senddcMessage,
         mediaError,
-        clearMediaError
+        clearMediaError,
+        retryAddTrack,
       }}
     >
       {children}
