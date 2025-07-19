@@ -39,6 +39,13 @@ const useStream = ({ addLog }: { addLog: addLogType }) => {
       if (isDeafened && willUnmute) {
         setIsDeafened(false);
       }
+    } else {
+      // No stream: just toggle isMuted state
+      setIsMuted((prev) => !prev);
+      // If currently deafened and user is unmuting, auto-undeafen
+      if (isDeafened) {
+        setIsDeafened(false);
+      }
     }
   }, [setIsMuted, isDeafened]);
 
@@ -79,6 +86,10 @@ const useStream = ({ addLog }: { addLog: addLogType }) => {
         if (!streamRef.current) {
           streamRef.current = await navigator.mediaDevices.getUserMedia({
             audio: true,
+          });
+          // When stream is acquired, set tracks.enabled according to isMuted
+          streamRef.current.getAudioTracks().forEach((track) => {
+            track.enabled = !isMuted;
           });
         }
 
