@@ -1,9 +1,10 @@
 import { useAuth } from "@/app/context/AuthContext";
 import { useSignaling } from "@/app/hooks/useSignaling";
 import { useCallback } from "react";
-import { getWebSocketStatus, WebSocketStatusType } from "../_utils";
+// import { getWebSocketStatus, WebSocketStatusType } from "../_utils";
 import { TentSignalingMessages } from "../_types";
-
+import { getWebSocketStatus } from "../_utils";
+// type currentTentIdType = string | number | null
 export const useTentSignaling = (currentTentId: string | number | null) => {
   const { token } = useAuth();
 
@@ -25,16 +26,17 @@ export const useTentSignaling = (currentTentId: string | number | null) => {
       reconnectDelay: 2000
     });
 
-  const status = useCallback((tentId: string | number): WebSocketStatusType => {
-    if (currentTentId !== tentId) {
-      return "N/A";
-    }
-    return getWebSocketStatus(wsReadyState);
-  }, [currentTentId, wsReadyState]);
+//   const status = useCallback((): WebSocketStatusType => {
+//     if (currentTentId !== tentId) {
+//       return "N/A";
+//     }
+//     return getWebSocketStatus(wsReadyState);
+//   }, [currentTentId, wsReadyState]);
+    const wsStatus = getWebSocketStatus(wsReadyState)
 
   return {
     wsLatency,
-    status,
+    wsStatus,
     closeWebSocket,
     wsLogs,
     onSignal,

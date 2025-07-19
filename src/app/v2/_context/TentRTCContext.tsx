@@ -38,7 +38,7 @@ interface TentRTCContextType {
   logsMap: LogsMap; // LogsMap is now Map<string, LogEntry[]>
   wsLogs: LogEntry[];
   wsLatency: number | null;
-  status: (tentId: string | number) => WebSocketStatusType;
+  wsStatus: WebSocketStatusType;
   dcMessages: RTCDataChannelMessageType[];
   senddcMessage: (message: string) => void;
   mediaError: MediaErrorType | null;
@@ -101,13 +101,14 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
     [registerSentMessage]
   );
 
-  const { onSignal, sendSignal, wsLatency, status, closeWebSocket, wsLogs } =
+  const { onSignal, sendSignal, wsLatency, wsStatus, closeWebSocket, wsLogs } =
     useTentSignaling(currentTentId);
 
   // Ref to store unsubscribe function
   const unsubscribeRef = React.useRef<(() => void) | null>(null);
 
   const leaveTent = useCallback(async () => {
+    console.log("leave tent is running")
     // Unsubscribe from onSignal if subscribed
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
@@ -531,6 +532,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
       // Leave current tent if connected
       if (currentTentId !== null) {
+        console.log("joinTent leaveTent currentTentId !== null was")
         await leaveTent();
       }
 
@@ -649,7 +651,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
         joinTent,
         leaveTent,
         wsLatency,
-        status,
+        wsStatus,
         currentTentId,
         dcMessages,
         senddcMessage,

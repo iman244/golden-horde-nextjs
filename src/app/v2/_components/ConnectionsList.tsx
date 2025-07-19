@@ -12,19 +12,19 @@ const ConnectionsList: React.FC = () => {
       {Array.from(connections).map(([user, { pc }]) => (
         <div key={user} className="relative w-8 h-8">
           {/* Avatar with first letter */}
-          <div className="w-8 h-8 rounded-full border-2 border-yellow-400 bg-[#23272f] flex items-center justify-center font-bold text-yellow-400 text-base">
+          <div className="rounded-avatar">
             {user.charAt(0).toUpperCase()}
           </div>
           {/* Status dot in bottom right */}
           <span
             className={clsx(
-              "absolute w-3 h-3 rounded-full border-2 border-[#23272f] bottom-0 right-0",
-              pc.connectionState === "connected" && "bg-green-400",
-              pc.connectionState === "connecting" && "bg-yellow-400",
-              pc.connectionState === "disconnected" && "bg-red-400",
+              "status-dot",
+              pc.connectionState === "connected" && "status-dot-connected",
+              pc.connectionState === "connecting" && "status-dot-connecting",
+              pc.connectionState === "disconnected" && "status-dot-disconnected",
               pc.connectionState !== "connected" &&
                 pc.connectionState !== "connecting" &&
-                pc.connectionState !== "disconnected" && "bg-gray-400"
+                pc.connectionState !== "disconnected" && "status-dot-unknown"
             )}
           />
         </div>

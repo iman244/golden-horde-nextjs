@@ -35,6 +35,14 @@ export function useSignaling<T extends MessageWithType>(
   const authRejectedCallbacks = useRef<(() => void)[]>([]);
   const [wsReadyState, setWsReadyState] = useState<number | null>(null);
   const [connectionKey, setConnectionKey] = useState(0);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(()=>{
+    console.log("channelId", channelId)
+    console.log("connectionKey", connectionKey)
+  },[
+    channelId, connectionKey
+  ])
 
   // Send a signaling message
   const sendSignal = useCallback(
@@ -126,7 +134,10 @@ export function useSignaling<T extends MessageWithType>(
     ws.onopen = () => {
       setWsReadyState(ws.readyState);
       addLog("WebSocket: Connection established");
-
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
       function ping() {
         lastPingTimestamp = Date.now();
         ws.send(JSON.stringify({ type: "ping", ts: lastPingTimestamp }));
@@ -157,7 +168,13 @@ export function useSignaling<T extends MessageWithType>(
         onClose(event);
       }
       if (autoReconnect) {
-        setTimeout(() => setConnectionKey((k) => k + 1), reconnectDelay ?? 1000);
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+        }
+        reconnectTimeoutRef.current = setTimeout(() => {
+          setConnectionKey((k) => k + 1);
+          reconnectTimeoutRef.current = null;
+        }, reconnectDelay ?? 1000);
       }
     };
 
@@ -201,10 +218,14 @@ export function useSignaling<T extends MessageWithType>(
       }
       if (pingInterval) clearInterval(pingInterval);
       setWsReadyState(null);
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
       // Do not clear all signal callbacks globally here; each component should unsubscribe its own callback.
     };
   }, [url, channelId, addLog, getUrl, clearLogs, onClose, autoReconnect, reconnectDelay, connectionKey]);
-
+  
   // Function to close the WebSocket and update ready state
   const closeWebSocket = useCallback(() => {
     if (wsRef.current) {

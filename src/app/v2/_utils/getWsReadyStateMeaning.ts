@@ -3,7 +3,7 @@ export type WebSocketStatusType =
   | "Open"
   | "Closed"
   | "Closing"
-  | "N/A";
+  | "Not Connected";
 
 // Returns a human-readable meaning for WebSocket readyState
 export function getWebSocketStatus(
@@ -21,6 +21,6 @@ export function getWebSocketStatus(
     case null:
     case undefined:
     default:
-      return "N/A";
+      return "Not Connected";
   }
 }

@@ -30,18 +30,24 @@ const Drawer: FC<DrawerProps> = ({ children, openUI }) => {
       {/* Drawer Panel: Only show when open and on mobile, or always on desktop */}
       <div
         className={clsx(
-          "v2-main-panel flex flex-col sm:static sm:flex-1 z-50",
+          "w-full h-[100dvh] fixed left-0 z-50 transition-all",
           isOpen
-            ? "v2-main-panel--drawer-open"
-            : "v2-main-panel--drawer-closed",
-          "sm:v2-main-panel--drawer-open",
-          isOpen ? "block" : "hidden",
-          "sm:block"
+            ? "top-0"
+            : "top-[100dvh]",
         )}
+        // className={clsx(
+        //   "v2-main-panel flex flex-col sm:static sm:flex-1 z-50",
+        //   isOpen
+        //     ? "v2-main-panel--drawer-open"
+        //     : "v2-main-panel--drawer-closed",
+        //   "sm:v2-main-panel--drawer-open",
+        //   isOpen ? "block" : "hidden",
+        //   "sm:block"
+        // )}
       >
         {/* Drawer close button for mobile (down arrow, top right) */}
         <button
-          className="absolute right-4 top-4 z-50 block sm:hidden bg-yellow-400 text-gray-900 rounded-full p-2 shadow-lg"
+          className="absolute right-4 top-4 z-50 bg-yellow-400 text-gray-900 rounded-full p-2 shadow-lg"
           onClick={onClose}
           aria-label="Close Drawer"
         >
@@ -60,7 +66,7 @@ const Drawer: FC<DrawerProps> = ({ children, openUI }) => {
             <polyline points="6 9 12 15 18 9"></polyline>
           </svg>
         </button>
-        <div className="flex-1 w-full flex flex-col overflow-y-auto">{children}</div>
+        <div className="flex-1 w-full h-full flex flex-col overflow-y-auto">{children}</div>
       </div>
     </>
   );
