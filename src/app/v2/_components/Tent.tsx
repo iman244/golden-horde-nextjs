@@ -1,5 +1,5 @@
 import { Tent as TentType } from "@/app/data.types";
-import React, { FC, useMemo } from "react";
+import React, { FC } from "react";
 import { useTentsLiveUsers } from "../_context/TentsLiveUsersContext";
 import { useTentRTCContext } from "../_context/TentRTCContext";
 import TentJoinLeaveButton from "./TentJoinLeaveButton";
@@ -10,14 +10,13 @@ import { getTentButtonLabel } from "../_utils";
 
 const Tent: FC<{ tent: TentType }> = ({ tent }) => {
   const { getParticipantsByTentId } = useTentsLiveUsers();
-  const { joinTent, leaveTent, status} =
+  const { joinTent, leaveTent, wsStatus} =
     useTentRTCContext();
-  const tentStatus = useMemo(() => status(tent.id), [status, tent.id]);
 
   const onTentClick = () => {
-    if (tentStatus == "N/A" || tentStatus == "Closed") {
+    if (wsStatus == "Not Connected" || wsStatus == "Closed") {
       joinTent(tent.id);
-    } else if (tentStatus == "Open") {
+    } else if (wsStatus == "Open") {
       leaveTent();
     }
   };
@@ -26,13 +25,13 @@ const Tent: FC<{ tent: TentType }> = ({ tent }) => {
     <div
       className={clsx(
         "v2-tent-card",
-        tentStatus == "Open" && "v2-tent-card-connected"
+        wsStatus == "Open" && "v2-tent-card-connected"
       )}
     >
       <div
         className={clsx(
           "v2-tent-header",
-          tentStatus == "Open" && "v2-tent-header-connected"
+          wsStatus == "Open" && "v2-tent-header-connected"
         )}
       >
         <TentInfo tent={tent} />
@@ -43,12 +42,12 @@ const Tent: FC<{ tent: TentType }> = ({ tent }) => {
           <TentJoinLeaveButton
             onClick={onTentClick}
             className={clsx(
-              tentStatus == "Open"
+                wsStatus == "Open"
                 ? "v2-tent-action-btn v2-tent-action-btn-leave"
                 : "v2-tent-action-btn"
             )}
           >
-            {getTentButtonLabel(tentStatus)}
+            {getTentButtonLabel(wsStatus)}
           </TentJoinLeaveButton>
         </div>
       </div>

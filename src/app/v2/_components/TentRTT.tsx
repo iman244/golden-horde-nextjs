@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Tent as TentType } from "@/app/data.types";
 import { useTentRTCContext } from "../_context/TentRTCContext";
 
@@ -6,15 +6,14 @@ interface TentRTTProps {
   tent: TentType;
 }
 
-const TentRTT: React.FC<TentRTTProps> = ({ tent }) => {
-  const { status, wsLatency } = useTentRTCContext();
-  const tentStatus = useMemo(() => status(tent.id), [status, tent.id]);
+const TentRTT: React.FC<TentRTTProps> = () => {
+  const { wsStatus, wsLatency } = useTentRTCContext();
 
-  if (tentStatus !== "Open") return null;
+  if (wsStatus !== "Open") return null;
 
   return (
     <div className="v2-tent-rtt">
-      WebSocket State: {tentStatus}
+      WebSocket State: {wsStatus}
       <br />
       WebSocket RTT: {wsLatency}
     </div>

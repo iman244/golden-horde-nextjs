@@ -18,21 +18,21 @@ export const useTentSignaling = (currentTentId: string | number | null) => {
     [token]
   );
 
-  const { onSignal, sendSignal, wsLatency, wsReadyState, closeWebSocket, logs: wsLogs } =
-    useSignaling<TentSignalingMessages>({
-      channelId: currentTentId,
-      getUrl: getVoiceChatUrl,
-      autoReconnect: true,
-      reconnectDelay: 2000
-    });
+  const {
+    onSignal,
+    sendSignal,
+    wsLatency,
+    wsReadyState,
+    closeWebSocket,
+    logs: wsLogs,
+  } = useSignaling<TentSignalingMessages>({
+    channelId: currentTentId,
+    getUrl: getVoiceChatUrl,
+    autoReconnect: true,
+    reconnectDelay: 2000,
+  });
 
-//   const status = useCallback((): WebSocketStatusType => {
-//     if (currentTentId !== tentId) {
-//       return "N/A";
-//     }
-//     return getWebSocketStatus(wsReadyState);
-//   }, [currentTentId, wsReadyState]);
-    const wsStatus = getWebSocketStatus(wsReadyState)
+  const wsStatus = getWebSocketStatus(wsReadyState);
 
   return {
     wsLatency,
@@ -40,6 +40,6 @@ export const useTentSignaling = (currentTentId: string | number | null) => {
     closeWebSocket,
     wsLogs,
     onSignal,
-    sendSignal
+    sendSignal,
   };
 };
