@@ -44,6 +44,10 @@ interface TentRTCContextType {
   mediaError: MediaErrorType | null;
   clearMediaError: () => void;
   retryAddTrack: () => Promise<void>;
+  isMuted: boolean;
+  toggleMute: () => void;
+  isDeafened: boolean;
+  toggleDeafen: () => void;
 }
 
 const TentRTCContext = createContext<TentRTCContextType | undefined>(undefined);
@@ -54,7 +58,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [currentTentId, setCurrentTentId] = useState<string | number | null>(
     null
   );
-  //   const { streamS } = useStream()
+
   const connectionsRef = useRef<connectionsType>(new Map());
   const [connections, setConnections] = useState<connectionsType>(new Map());
 
@@ -78,7 +82,15 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
     pendingGeneratedICECandidateMessagesRef.current.clear();
   }, [currentTentId]);
 
-  const { addTrack, mediaError, clearMediaError } = useStream({ addLog });
+  const {
+    addTrack,
+    mediaError,
+    clearMediaError,
+    isMuted,
+    toggleMute,
+    isDeafened,
+    toggleDeafen,
+  } = useStream({ addLog });
 
   const {
     dcMessages,
@@ -108,7 +120,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const unsubscribeRef = React.useRef<(() => void) | null>(null);
 
   const leaveTent = useCallback(async () => {
-    console.log("leave tent is running")
+    console.log("leave tent is running");
     // Unsubscribe from onSignal if subscribed
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
@@ -324,8 +336,8 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
           `Error in negotiateConnection addTrack: ${err}`
         );
         addLog(target_user, `Error in addTrack: ${err}`, "error");
-        const pre = connectionsRef.current.get(target_user)
-        updateUserData(target_user, {...pre, pc, dc})
+        const pre = connectionsRef.current.get(target_user);
+        updateUserData(target_user, { ...pre, pc, dc });
         return;
       }
       // Wait for signalingState to be stable before creating an offer
@@ -396,8 +408,8 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       } catch (err) {
         console.error(from, `Error in handleOffer addTrack: ${err}`);
         addLog(from, `Error in addTrack: ${err}`, "error");
-        const pre  = connectionsRef.current.get(from)
-        updateUserData(from, {...pre, pc})
+        const pre = connectionsRef.current.get(from);
+        updateUserData(from, { ...pre, pc });
       }
 
       let answer;
@@ -532,7 +544,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
       // Leave current tent if connected
       if (currentTentId !== null) {
-        console.log("joinTent leaveTent currentTentId !== null was")
+        console.log("joinTent leaveTent currentTentId !== null was");
         await leaveTent();
       }
 
@@ -610,8 +622,8 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
   );
 
   const retryAddTrack = useCallback(async () => {
-    console.log("retryAddTrack is running")
-    console.log("connectionsRef", connectionsRef.current)
+    console.log("retryAddTrack is running");
+    console.log("connectionsRef", connectionsRef.current);
     for (const [target_user, { pc }] of connectionsRef.current.entries()) {
       if (!pc) {
         addLog(
@@ -658,6 +670,10 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
         mediaError,
         clearMediaError,
         retryAddTrack,
+        isMuted,
+        toggleMute,
+        isDeafened,
+        toggleDeafen,
       }}
     >
       {children}

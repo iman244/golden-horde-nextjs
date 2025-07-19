@@ -22,6 +22,55 @@ function hasTrack(senders: RTCRtpSender[], kind: "audio" | "video") {
 const useStream = ({ addLog }: { addLog: addLogType }) => {
   // Removed mediaError state
   const [mediaError, setMediaError] = useState<MediaErrorType | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isDeafened, setIsDeafened] = useState(false);
+
+  const toggleMute = useCallback(() => {
+    if (streamRef.current) {
+      const audioTracks = streamRef.current.getAudioTracks();
+      const willUnmute = audioTracks.some((track) => !track.enabled);
+      audioTracks.forEach((track) => {
+        track.enabled = !track.enabled;
+      });
+      // After toggling, update isMuted state based on first track
+      const firstTrack = streamRef.current.getAudioTracks()[0];
+      setIsMuted(firstTrack ? !firstTrack.enabled : false);
+      // If currently deafened and user is unmuting, auto-undeafen
+      if (isDeafened && willUnmute) {
+        setIsDeafened(false);
+      }
+    }
+  }, [setIsMuted, isDeafened]);
+
+  const wasMutedBeforeDeafen = useRef(false);
+  const toggleDeafen = useCallback(() => {
+    setIsDeafened((d) => {
+      const next = !d;
+      if (next) {
+        // If deafen is being activated, also mute mic
+        if (streamRef.current) {
+          wasMutedBeforeDeafen.current = isMuted;
+          streamRef.current.getAudioTracks().forEach((track) => {
+            if (track.enabled) track.enabled = false;
+          });
+          // Update isMuted state
+          const firstTrack = streamRef.current.getAudioTracks()[0];
+          setIsMuted(firstTrack ? !firstTrack.enabled : false);
+        }
+      } else {
+        // If deafen is being deactivated, unmute if user was not muted before deafen
+        if (streamRef.current && !wasMutedBeforeDeafen.current) {
+          streamRef.current.getAudioTracks().forEach((track) => {
+            if (!track.enabled) track.enabled = true;
+          });
+          // Update isMuted state
+          const firstTrack = streamRef.current.getAudioTracks()[0];
+          setIsMuted(firstTrack ? !firstTrack.enabled : false);
+        }
+      }
+      return next;
+    });
+  }, [isMuted]);
 
   const streamRef = useRef<MediaStream>(null);
   const addTrack = useCallback(
@@ -43,6 +92,11 @@ const useStream = ({ addLog }: { addLog: addLogType }) => {
           if (retryStream) {
             streamRef.current = await navigator.mediaDevices.getUserMedia({
               audio: true,
+            });
+          }
+          if (isMuted) {
+            streamRef.current.getAudioTracks().forEach((track) => {
+              track.enabled = false;
             });
           }
           tracks.forEach((t) => pc.addTrack(t, streamRef.current!));
@@ -97,7 +151,15 @@ const useStream = ({ addLog }: { addLog: addLogType }) => {
     setMediaError(null);
   }, []);
 
-  return { addTrack, mediaError, clearMediaError };
+  return {
+    addTrack,
+    mediaError,
+    clearMediaError,
+    isMuted,
+    toggleMute,
+    isDeafened,
+    toggleDeafen,
+  };
 };
 
 export default useStream;

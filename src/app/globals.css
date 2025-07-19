@@ -228,6 +228,10 @@ body {
     @apply hover:bg-[#3e3f3f] h-fit p-2 rounded-md transition-all cursor-pointer
 }
 
+.action-container.disabled {
+    @apply bg-red-600/20 text-red-600 hover:bg-red-700/20 transition-colors;
+}
+
 .imprt-action-container {
     @apply flex-1 bg-[#23262e] border border-[#2a2d36] rounded-lg py-2 px-4 flex items-center justify-center hover:bg-[#2a2d36] cursor-pointer;
 }

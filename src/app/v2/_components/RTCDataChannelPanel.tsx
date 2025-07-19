@@ -27,7 +27,7 @@ const RTCDataChannelPanel = () => {
   }, [senddcMessage, m]);
 
   return (
-    <div className="flex flex-col flex-1 bg-[#181a20]">
+    <div className="RTCDataChannelPanel flex flex-col flex-1 bg-[#181a20]">
       <div className="v2-card-title p-3">RTC Data Channel</div>
       {/* Replace the old connections UI with the new component */}
       <ConnectionsList />

@@ -1,12 +1,9 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { useTentRTCContext } from "../_context/TentRTCContext";
 
 const Audios = () => {
-  const { connections } = useTentRTCContext();
+  const { connections, isDeafened } = useTentRTCContext();
 
-  useEffect(() => {
-    console.log("connections", connections);
-  }, [connections]);
   return (
     <>
       {Array.from(connections.entries()).map(([username, { stream }]) =>
@@ -15,7 +12,7 @@ const Audios = () => {
             key={username}
             autoPlay
             hidden
-            //   muted={voiceChat.isDeafened}
+            muted={isDeafened}
             ref={(el) => {
               if (el && el.srcObject !== stream) {
                 el.srcObject = stream;

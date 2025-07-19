@@ -3,7 +3,6 @@ import type { Tent } from "@/app/data.types";
 import { useTentRTCContext } from "../_context/TentRTCContext";
 import { useTentsLiveUsers } from "../_context/TentsLiveUsersContext";
 import { HiSpeakerWave } from "react-icons/hi2";
-import TentStatusIcon from "./TentStatusIcon";
 import UserStatus from "./UserStatus";
 
 interface TentListItemProps {
@@ -18,9 +17,6 @@ const TentListItem: React.FC<TentListItemProps> = ({ tent }) => {
   const users = getParticipantsByTentId(tent.id);
 
   const isSelected = tent.id === currentTentId;
-
-  // Only show icon and tooltip if this tent is the current one
-  const showStatus = tent.id === currentTentId;
 
   return (
     <div style={{ marginBottom: 8 }}>
@@ -48,7 +44,6 @@ const TentListItem: React.FC<TentListItemProps> = ({ tent }) => {
           <HiSpeakerWave size={20} />
         </span>
         <span style={{ flex: 1, textAlign: "left" }}>{tent.name}</span>
-        {showStatus && <TentStatusIcon />}
       </button>
       {users.length > 0 && (
         <div

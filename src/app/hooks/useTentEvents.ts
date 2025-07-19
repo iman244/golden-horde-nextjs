@@ -18,6 +18,8 @@ export function useTentEvents({ token, onAuthRejected }: { token: string | null;
     onAuthRejected: onTentEventAuthRejected,
   } = useSignaling<TentEventMessage>({
     url: wsUrl,
+    autoReconnect: true,
+    reconnectDelay: 2000
   });
 
   function hasTentId(
