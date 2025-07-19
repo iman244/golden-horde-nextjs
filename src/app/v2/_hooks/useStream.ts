@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
 import { addLogType } from "./useKeyedLogs";
 
 export type MediaErrorType =
@@ -19,11 +19,29 @@ function hasTrack(senders: RTCRtpSender[], kind: "audio" | "video") {
   return senders.some((sender) => sender.track && sender.track.kind === kind);
 }
 
+const LOCALSTORAGE_MUTED_KEY = "voicechat_isMuted";
+const LOCALSTORAGE_DEAFENED_KEY = "voicechat_isDeafened";
+
+const getInitialMuted = () => {
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem(LOCALSTORAGE_MUTED_KEY);
+    if (stored !== null) return stored === "true";
+  }
+  return false;
+};
+const getInitialDeafened = () => {
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem(LOCALSTORAGE_DEAFENED_KEY);
+    if (stored !== null) return stored === "true";
+  }
+  return false;
+};
+
 const useStream = ({ addLog }: { addLog: addLogType }) => {
   // Removed mediaError state
   const [mediaError, setMediaError] = useState<MediaErrorType | null>(null);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isDeafened, setIsDeafened] = useState(false);
+  const [isMuted, setIsMuted] = useState(getInitialMuted);
+  const [isDeafened, setIsDeafened] = useState(getInitialDeafened);
 
   const toggleMute = useCallback(() => {
     if (streamRef.current) {
@@ -155,12 +173,24 @@ const useStream = ({ addLog }: { addLog: addLogType }) => {
         throw err;
       }
     },
-    [addLog, streamRef]
+    [addLog, streamRef, isMuted]
   );
 
   const clearMediaError = useCallback(() => {
     setMediaError(null);
   }, []);
+
+  // Persist isMuted and isDeafened to localStorage when they change
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(LOCALSTORAGE_MUTED_KEY, String(isMuted));
+    }
+  }, [isMuted]);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(LOCALSTORAGE_DEAFENED_KEY, String(isDeafened));
+    }
+  }, [isDeafened]);
 
   return {
     addTrack,

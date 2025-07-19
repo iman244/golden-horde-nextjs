@@ -400,7 +400,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       try {
         addLog(
           from,
-          `Setting remote description (offer): ${JSON.stringify(offer)}`,
+          `Setting remote description (offer)`,
           "info"
         );
         await pc.setRemoteDescription(offer);
