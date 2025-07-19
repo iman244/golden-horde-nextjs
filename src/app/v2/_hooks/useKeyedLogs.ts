@@ -2,11 +2,12 @@ import { LogEntry, LogLevel } from "@/app/types";
 import { useState, useCallback } from "react";
 
 export type LogsMap = Map<string, LogEntry[]>;
+export type addLogType =  (key: string, message: string, level?: LogLevel) => void
 
 export function useKeyedLogs() {
   const [logsMap, setLogsMap] = useState<LogsMap>(new Map());
 
-  const addLog = useCallback((key: string, message: string, level: LogLevel = "info") => {
+  const addLog: addLogType = useCallback((key: string, message: string, level: LogLevel = "info") => {
     setLogsMap((prev) => {
       const newMap = new Map(prev);
       const prevLogs = newMap.get(key) || [];

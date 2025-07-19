@@ -10,6 +10,7 @@ import LogsContent from "./_components/LogsContent";
 import { useTentRTCContext } from "./_context/TentRTCContext";
 import clsx from "clsx";
 import Audios from "./_components/Audios";
+import MediaErrorModal from "./_components/MediaErrorModal";
 
 const V2Page = () => {
   const hordes_q = useHordesQuery();
@@ -64,6 +65,7 @@ const V2Page = () => {
       </div>
 
       <Audios />
+      <MediaErrorModal />
 
       {/* Drawer Toggle Bar: Only show when closed and on mobile */}
       {/* {isMobile && currentTent && !drawerOpen && (

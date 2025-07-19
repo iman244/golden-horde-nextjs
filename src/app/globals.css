@@ -211,3 +211,11 @@ body {
     @apply flex items-center justify-center w-10 h-10 shadow-none bg-transparent border-none;
   }
 }
+
+/* --- V2 Modal Styles --- */
+.v2-modal-overlay {
+  @apply fixed inset-0 bg-black/60 z-40 backdrop-blur-sm;
+}
+.v2-modal {
+  @apply fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 bg-white/5 border border-white/10 rounded-xl shadow-2xl p-6 min-w-[300px] max-w-[90vw] text-white;
+}

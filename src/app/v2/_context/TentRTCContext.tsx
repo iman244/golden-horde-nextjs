@@ -19,6 +19,7 @@ import {
   RTCDataChannelMessageType,
 } from "../_hooks/useRTCDataChannel";
 import { LogsMap, useKeyedLogs } from "@/app/v2/_hooks/useKeyedLogs";
+import useStream from "../_hooks/useStream";
 // import useStream from "../_hooks/useStream";
 
 type userRTCData = {
@@ -40,7 +41,9 @@ interface TentRTCContextType {
   status: (tentId: string | number) => WebSocketStatusType;
   dcMessages: RTCDataChannelMessageType[];
   senddcMessage: (message: string) => void;
-}
+  mediaError: string | null;
+  clearMediaError: () => void;
+ }
 
 const TentRTCContext = createContext<TentRTCContextType | undefined>(undefined);
 
@@ -74,21 +77,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
     pendingGeneratedICECandidateMessagesRef.current.clear();
   }, [currentTentId]);
 
-  const streamRef = useRef<MediaStream>(null);
-  const addTrack = useCallback(
-    async (target_user: string, pc: RTCPeerConnection) => {
-      if (!streamRef.current) {
-        streamRef.current = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
-      }
-      const tracks = streamRef.current.getTracks();
-      tracks.forEach((t) => pc.addTrack(t, streamRef.current!));
-      addLog(target_user, "Add Tracks");
-      console.log("addTrack tracks", tracks);
-    },
-    [addLog]
-  );
+  const { addTrack, mediaError, clearMediaError } = useStream({ addLog });
 
   const {
     dcMessages,
@@ -294,7 +283,16 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       const dc = pc.createDataChannel(`${username!}_` + target_user);
       dc.onmessage = getOnMessageHandler(target_user);
       pc.ontrack = ontrack(target_user, pc);
-      await addTrack(target_user, pc);
+      try {
+        addLog(target_user, `Calling addTrack for ${target_user}`, "info");
+        await addTrack(target_user, pc);
+      } catch (err) {
+        console.error(
+          target_user,
+          `Error in handleCreatingConnections addTrack: ${err}`
+        );
+        addLog(target_user, `Error in addTrack: ${err}`, "error");
+      }
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       const preD = connectionsRef.current.get(target_user);
@@ -329,7 +327,12 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
     }) => {
       removeLog(from);
       addLog(from, `Received offer from ${from}`, "info");
-      const pc = createAndSetupPeerConnection(from);
+      let pc = connectionsRef.current.get(from)?.pc;
+      if (!pc) {
+        pc = createAndSetupPeerConnection(from);
+      } else {
+        addLog(from, `${from} start renegotiation`);
+      }
       pc.ontrack = ontrack(from, pc);
       try {
         addLog(
@@ -346,6 +349,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
         addLog(from, `Calling addTrack for ${from}`, "info");
         await addTrack(from, pc);
       } catch (err) {
+        console.error(from, `Error in handleOffer addTrack: ${err}`);
         addLog(from, `Error in addTrack: ${err}`, "error");
       }
       let answer;
@@ -577,6 +581,8 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
         currentTentId,
         dcMessages,
         senddcMessage,
+        mediaError,
+        clearMediaError
       }}
     >
       {children}
