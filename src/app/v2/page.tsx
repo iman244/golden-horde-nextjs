@@ -12,6 +12,15 @@ import clsx from "clsx";
 import Audios from "./_components/Audios";
 import MediaErrorModal from "./_components/MediaErrorModal";
 
+// dot sabz
+// mute
+// defean
+// leave tent (disconnect)
+// tool panel in bottom left
+// signal strength at the end of users
+// share screen
+// reconnect to
+
 const V2Page = () => {
   const hordes_q = useHordesQuery();
   const hordes = hordes_q.data?.data || [];

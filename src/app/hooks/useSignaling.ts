@@ -6,6 +6,19 @@ interface UseSignalingOptions {
   url?: string;
   channelId?: string | number | null;
   getUrl?: (channelId: string | number) => string;
+  /**
+   * Optional callback invoked when the WebSocket connection closes.
+   * Receives the CloseEvent as its argument.
+   */
+  onClose?: (event: CloseEvent) => void;
+  /**
+   * If true, automatically reconnect on close.
+   */
+  autoReconnect?: boolean;
+  /**
+   * Delay in ms before attempting to reconnect (default: 1000).
+   */
+  reconnectDelay?: number;
 }
 
 type MessageWithType = { type: string };
@@ -13,7 +26,7 @@ type MessageWithTypeAndTs = { type: string; ts: number };
 export function useSignaling<T extends MessageWithType>(
   options: UseSignalingOptions
 ) {
-  const { url, channelId, getUrl } = options;
+  const { url, channelId, getUrl, onClose, autoReconnect, reconnectDelay } = options;
   const wsRef = useRef<WebSocket | null>(null);
   //   const [wsLogs, setWsLogs] = useState<LogEntry[]>([]);
   const { logs, addLog, clearLogs } = useLogs();
@@ -21,6 +34,7 @@ export function useSignaling<T extends MessageWithType>(
   const signalCallbacks = useRef<((msg: T) => void)[]>([]);
   const authRejectedCallbacks = useRef<(() => void)[]>([]);
   const [wsReadyState, setWsReadyState] = useState<number | null>(null);
+  const [connectionKey, setConnectionKey] = useState(0);
 
   // Send a signaling message
   const sendSignal = useCallback(
@@ -139,6 +153,12 @@ export function useSignaling<T extends MessageWithType>(
       authRejectedCallbacks.current.forEach((cb) => cb());
       if (pingInterval) clearInterval(pingInterval);
       clearLogs();
+      if (typeof onClose === "function") {
+        onClose(event);
+      }
+      if (autoReconnect) {
+        setTimeout(() => setConnectionKey((k) => k + 1), reconnectDelay ?? 1000);
+      }
     };
 
     ws.onerror = () => {
@@ -183,7 +203,7 @@ export function useSignaling<T extends MessageWithType>(
       setWsReadyState(null);
       // Do not clear all signal callbacks globally here; each component should unsubscribe its own callback.
     };
-  }, [url, channelId, addLog, getUrl, clearLogs]);
+  }, [url, channelId, addLog, getUrl, clearLogs, onClose, autoReconnect, reconnectDelay, connectionKey]);
 
   // Function to close the WebSocket and update ready state
   const closeWebSocket = useCallback(() => {

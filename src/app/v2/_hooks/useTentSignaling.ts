@@ -21,6 +21,8 @@ export const useTentSignaling = (currentTentId: string | number | null) => {
     useSignaling<TentSignalingMessages>({
       channelId: currentTentId,
       getUrl: getVoiceChatUrl,
+      autoReconnect: true,
+      reconnectDelay: 2000
     });
 
   const status = useCallback((tentId: string | number): WebSocketStatusType => {
