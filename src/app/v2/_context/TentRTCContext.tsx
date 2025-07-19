@@ -48,6 +48,7 @@ interface TentRTCContextType {
   toggleMute: () => void;
   isDeafened: boolean;
   toggleDeafen: () => void;
+  reconnectToUser: (target_user: string) => Promise<void>;
 }
 
 const TentRTCContext = createContext<TentRTCContextType | undefined>(undefined);
@@ -374,6 +375,11 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
     ]
   );
 
+  const reconnectToUser = useCallback(
+    async (target_user: string) => await negotiateConnection(target_user),
+    [negotiateConnection]
+  );
+
   const handleOffer = useCallback(
     async ({
       from,
@@ -660,6 +666,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
         connectionsRef: connectionsRef.current,
         logsMap,
         wsLogs,
+        reconnectToUser,
         joinTent,
         leaveTent,
         wsLatency,

@@ -1,9 +1,10 @@
-import React from "react";
+import React, { Fragment } from "react";
 import type { Tent } from "@/app/data.types";
 import { useTentRTCContext } from "../_context/TentRTCContext";
 import { useTentsLiveUsers } from "../_context/TentsLiveUsersContext";
 import { HiSpeakerWave } from "react-icons/hi2";
-import UserStatus from "./UserStatus";
+import UserInTentDisplay from "./UserInTentDisplay";
+import ConnectedUserStatus from "./ConnectedUserStatus";
 
 interface TentListItemProps {
   tent: Tent;
@@ -55,11 +56,13 @@ const TentListItem: React.FC<TentListItemProps> = ({ tent }) => {
           }}
         >
           {users.map((username) => (
-            <UserStatus
-              key={username}
-              user={username}
-              activeTent={tent.id === currentTentId}
-            />
+            <Fragment key={username}>
+              {tent.id === currentTentId ? (
+                <ConnectedUserStatus user={username} />
+              ) : (
+                <UserInTentDisplay user={username} />
+              )}
+            </Fragment>
           ))}
         </div>
       )}
