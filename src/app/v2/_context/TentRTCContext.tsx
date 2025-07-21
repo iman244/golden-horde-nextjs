@@ -26,6 +26,7 @@ type userRTCData = {
   pc: RTCPeerConnection;
   dc?: RTCDataChannel;
   stream?: MediaStream;
+  audioState?: { isMuted: boolean; isDeafened: boolean };
 };
 type connectionsType = Map<string, userRTCData>;
 
@@ -49,6 +50,14 @@ interface TentRTCContextType {
   isDeafened: boolean;
   toggleDeafen: () => void;
   reconnectToUser: (target_user: string) => Promise<void>;
+  // Audio state getters
+  getPeerAudioState: (
+    username: string
+  ) => { isMuted: boolean; isDeafened: boolean } | null;
+  getAllPeerAudioStates: () => Map<
+    string,
+    { isMuted: boolean; isDeafened: boolean }
+  >;
 }
 
 const TentRTCContext = createContext<TentRTCContextType | undefined>(undefined);
@@ -63,8 +72,34 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const connectionsRef = useRef<connectionsType>(new Map());
   const [connections, setConnections] = useState<connectionsType>(new Map());
 
+  const pendingGeneratedICECandidateMessagesRef = useRef<
+    Map<string, Extract<TentSignalingMessages, { type: "ice-candidate" }>[]>
+  >(new Map());
+
+  // Store pending audio states for users we don't have connections with yet
+  const pendingAudioStatesRef = useRef<
+    Map<string, { isMuted: boolean; isDeafened: boolean }>
+  >(new Map());
+
+  useEffect(() => {
+    pendingGeneratedICECandidateMessagesRef.current.clear();
+    pendingAudioStatesRef.current.clear();
+  }, [currentTentId]);
+
   const updateUserData = useCallback(
     (target_user: string, newData: userRTCData) => {
+      // Check for pending audio state and apply it
+      const pendingAudioState = pendingAudioStatesRef.current.get(target_user);
+      if (pendingAudioState && !newData.audioState) {
+        newData = { ...newData, audioState: pendingAudioState };
+        pendingAudioStatesRef.current.delete(target_user);
+        addLog(
+          target_user,
+          `Applied pending audio state: muted=${pendingAudioState.isMuted}, deafened=${pendingAudioState.isDeafened}`,
+          "info"
+        );
+      }
+
       connectionsRef.current.set(target_user, newData);
       setConnections((preMap) => {
         const newMap = new Map(preMap);
@@ -72,16 +107,8 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
         return newMap;
       });
     },
-    []
+    [addLog]
   );
-
-  const pendingGeneratedICECandidateMessagesRef = useRef<
-    Map<string, Extract<TentSignalingMessages, { type: "ice-candidate" }>[]>
-  >(new Map());
-
-  useEffect(() => {
-    pendingGeneratedICECandidateMessagesRef.current.clear();
-  }, [currentTentId]);
 
   const {
     addTrack,
@@ -116,6 +143,16 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   const { onSignal, sendSignal, wsLatency, wsStatus, closeWebSocket, wsLogs } =
     useTentSignaling(currentTentId);
+
+  // Broadcast audio state changes to all peers
+  useEffect(() => {
+    sendSignal({
+      type: "audio_state_changed",
+      username: username!,
+      isMuted,
+      isDeafened,
+    });
+  }, [isMuted, isDeafened, sendSignal, username]);
 
   // Ref to store unsubscribe function
   const unsubscribeRef = React.useRef<(() => void) | null>(null);
@@ -398,11 +435,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       }
       pc.ontrack = ontrack(from, pc);
       try {
-        addLog(
-          from,
-          `Setting remote description (offer)`,
-          "info"
-        );
+        addLog(from, `Setting remote description (offer)`, "info");
         await pc.setRemoteDescription(offer);
       } catch (err) {
         addLog(from, `Error setting remote description: ${err}`, "error");
@@ -489,6 +522,8 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       if (user !== username) {
         connectionsRef.current.get(user)?.pc.close();
         connectionsRef.current.delete(user);
+        // Clean up pending audio state
+        pendingAudioStatesRef.current.delete(user);
         setConnections(new Map(connectionsRef.current));
         addLog(user, `${user} left and connection closed`, "info");
       }
@@ -565,6 +600,17 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
               removeLog(target_user);
               await negotiateConnection(target_user);
             });
+            // Send current audio state to all existing users after connections are initiated
+            if (msg.other_users.length > 0) {
+              setTimeout(() => {
+                sendSignal({
+                  type: "audio_state_changed",
+                  username: username!,
+                  isMuted,
+                  isDeafened,
+                });
+              }, 100); // Small delay to ensure connections are being established
+            }
             break;
           case "failed":
             addLog(msg.username, "Connection Failed, try to reconnecting...");
@@ -596,10 +642,47 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
             });
             break;
           case "user_joined":
-            console.log("user_joined is not handling yet");
+            // Send current audio state to newly joined user
+            setTimeout(() => {
+              sendSignal({
+                type: "audio_state_changed",
+                username: username!,
+                isMuted,
+                isDeafened,
+              });
+            }, 100); // Small delay to ensure the new user is ready to receive
             break;
           case "user_left":
             await handleUserLeave({ user: msg.username });
+            break;
+          case "audio_state_changed":
+            // Update the connection's audioState
+            const existingConnection = connectionsRef.current.get(msg.username);
+            if (existingConnection) {
+              updateUserData(msg.username, {
+                ...existingConnection,
+                audioState: {
+                  isMuted: msg.isMuted,
+                  isDeafened: msg.isDeafened,
+                },
+              });
+              addLog(
+                msg.username,
+                `Audio state updated: muted=${msg.isMuted}, deafened=${msg.isDeafened}`,
+                "info"
+              );
+            } else {
+              // Store audio state for when connection is created
+              pendingAudioStatesRef.current.set(msg.username, {
+                isMuted: msg.isMuted,
+                isDeafened: msg.isDeafened,
+              });
+              addLog(
+                msg.username,
+                `Audio state stored (pending connection): muted=${msg.isMuted}, deafened=${msg.isDeafened}`,
+                "info"
+              );
+            }
             break;
           case "ping":
           case "pong":
@@ -624,6 +707,11 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       handleAnswer,
       handleUserLeave,
       handleIceCandidateMsg,
+      updateUserData,
+      isDeafened,
+      isMuted,
+      sendSignal,
+      username,
     ]
   );
 
@@ -649,6 +737,25 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       }
     }
   }, [addTrack, addLog, negotiateConnection]);
+
+  // Audio state getter functions
+  const getPeerAudioState = useCallback((username: string) => {
+    const connection = connectionsRef.current.get(username);
+    return connection?.audioState || null;
+  }, []);
+
+  const getAllPeerAudioStates = useCallback(() => {
+    const audioStates = new Map<
+      string,
+      { isMuted: boolean; isDeafened: boolean }
+    >();
+    connectionsRef.current.forEach((connection, username) => {
+      if (connection.audioState) {
+        audioStates.set(username, connection.audioState);
+      }
+    });
+    return audioStates;
+  }, []);
 
   // Cleanup on unmount
   React.useEffect(() => {
@@ -681,6 +788,8 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
         toggleMute,
         isDeafened,
         toggleDeafen,
+        getPeerAudioState,
+        getAllPeerAudioStates,
       }}
     >
       {children}

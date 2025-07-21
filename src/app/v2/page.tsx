@@ -10,16 +10,31 @@ import { useAuth } from "../context/AuthContext";
 import UserPanel from "./_components/UserPanel";
 import RTCDataChannelPanel from "./_components/RTCDataChannelPanel";
 
-// dot sabz
-// mute
-// defean
+// [+] dot sabz
+// [+] mute
+// [+] defean
 // [+] leave tent (disconnect)
 // [+] tool panel in bottom left
-// signal strength at the end of users
-// share screen
-// reconnect to user
+// [+] signal strength at the end of users
 // [+] reconnect to tent
+// [+/-] reconnect to user
+
+// disconnect from tent
+// share screen
 // scroll chat on new message
+// max height for rtc datachannel
+// show mute or deafened of other userss
+// user left and join, connecting to websocket is not reliable
+// echo cancallation
+// noise cancellation
+// gain control
+// volume control
+// audio settings
+// audio output
+// audio input
+// audio device
+// audio device list
+
 
 const V2Page = () => {
   const { username } = useAuth();
