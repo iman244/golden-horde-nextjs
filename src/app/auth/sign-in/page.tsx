@@ -5,27 +5,45 @@ import axios from "axios";
 import { useRouter } from "next/navigation";
 import type { AxiosError } from "axios";
 import AuthBackButton from "@/app/components/AuthBackButton";
+import { useAuth } from "@/app/context/AuthContext";
 
 const protocol = process.env.NEXT_PUBLIC_DJANGO_ADMIN_PROTOCOL || "http";
 const domain = process.env.NEXT_PUBLIC_DJANGO_ADMIN_DOMAIN || "localhost:8000";
 const SIGN_IN_URL = `${protocol}://${domain}/api/membership/sign-in/`;
 
+// Define the expected response type from the sign-in API
+interface SignInResponse {
+  token: string;
+  // Add other expected properties here as needed
+  // user?: { id: string; email: string; }; // example
+}
+
 export default function LoginPage() {
+  const { signIn } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [success, setSuccess] = useState(false);
   const router = useRouter();
-
   const mutation = useMutation({
-    mutationFn: async ({ username, password }: { username: string; password: string }) => {
-      const res = await axios.post(SIGN_IN_URL, { username, password });
+    mutationFn: async ({
+      username,
+      password,
+    }: {
+      username: string;
+      password: string;
+    }): Promise<SignInResponse> => {
+      const res = await axios.post<SignInResponse>(SIGN_IN_URL, {
+        username,
+        password,
+      });
       return res.data;
     },
     onSuccess: (data, variables) => {
+      const { token } = data;
+      const { username } = variables;
       setSuccess(true);
-      if (data.token && variables.username) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("username", variables.username);
+      if (token && username) {
+        signIn({ token, username });
       }
       // Redirect after a short delay for UX
       setTimeout(() => {
@@ -44,10 +62,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#0f0f0f] to-[#1a1a1a] font-sans relative">
       <AuthBackButton />
       <div className="auth-card">
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-6"
-        >
+        <form onSubmit={handleSubmit} className="space-y-6">
           <h1 className="text-2xl font-bold text-center bg-gradient-to-r from-yellow-400 to-yellow-200 bg-clip-text text-transparent mb-2">
             Golden Horde Login
           </h1>
@@ -57,7 +72,7 @@ export default function LoginPage() {
               type="text"
               className="auth-input"
               value={username}
-              onChange={e => setUsername(e.target.value)}
+              onChange={(e) => setUsername(e.target.value)}
               required
               autoComplete="username"
             />
@@ -76,7 +91,7 @@ export default function LoginPage() {
               type="password"
               className="auth-input"
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
             />
@@ -90,19 +105,18 @@ export default function LoginPage() {
           </button>
           {mutation.isError && (
             <div className="auth-error">
-              {(mutation.error as AxiosError<{ non_field_errors?: string[] }>)?.response?.data?.non_field_errors?.[0] || 
-               (mutation.error instanceof Error
-                 ? mutation.error.message
-                 : "Login failed")}
+              {(mutation.error as AxiosError<{ non_field_errors?: string[] }>)
+                ?.response?.data?.non_field_errors?.[0] ||
+                (mutation.error instanceof Error
+                  ? mutation.error.message
+                  : "Login failed")}
             </div>
           )}
-          {success && (
-            <div className="auth-success">Login successful!</div>
-          )}
+          {success && <div className="auth-success">Login successful!</div>}
         </form>
       </div>
       <div className="mt-4 text-center">
-        <span className="text-gray-400">Don&apos;t have an account?</span>{' '}
+        <span className="text-gray-400">Don&apos;t have an account?</span>{" "}
         <a
           href="/auth/sign-up"
           className="text-yellow-400 hover:underline hover:text-yellow-300 transition"

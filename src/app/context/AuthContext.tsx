@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import React, {
   createContext,
@@ -17,6 +17,7 @@ interface AuthContextType {
   username: string | null;
   authStatus: AuthStatus;
   logout: () => void;
+  signIn: ({token, username}: {token: string, username: string}) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,6 +39,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const signIn: AuthContextType["signIn"] = useCallback(({token, username}) => {
+    localStorage.setItem("token", token);
+    localStorage.setItem("username", username);
+    setToken(token);
+    setUsername(username);
+    setAuthStatus("authenticated");
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem("token");
     localStorage.removeItem("username");
@@ -45,7 +54,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ token, username, authStatus, logout }}>
+    <AuthContext.Provider
+      value={{ token, username, authStatus, logout, signIn }}
+    >
       {children}
     </AuthContext.Provider>
   );
