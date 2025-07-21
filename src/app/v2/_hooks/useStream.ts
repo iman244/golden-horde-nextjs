@@ -38,7 +38,6 @@ const getInitialDeafened = () => {
 };
 
 const useStream = ({ addLog }: { addLog: addLogType }) => {
-  // Removed mediaError state
   const [mediaError, setMediaError] = useState<MediaErrorType | null>(null);
   const [isMuted, setIsMuted] = useState(getInitialMuted);
   const [isDeafened, setIsDeafened] = useState(getInitialDeafened);
@@ -73,24 +72,32 @@ const useStream = ({ addLog }: { addLog: addLogType }) => {
       const next = !d;
       if (next) {
         // If deafen is being activated, also mute mic
+        wasMutedBeforeDeafen.current = isMuted;
         if (streamRef.current) {
-          wasMutedBeforeDeafen.current = isMuted;
           streamRef.current.getAudioTracks().forEach((track) => {
             if (track.enabled) track.enabled = false;
           });
           // Update isMuted state
           const firstTrack = streamRef.current.getAudioTracks()[0];
           setIsMuted(firstTrack ? !firstTrack.enabled : false);
+        } else {
+          // No stream: just set muted state
+          setIsMuted(true);
         }
       } else {
         // If deafen is being deactivated, unmute if user was not muted before deafen
-        if (streamRef.current && !wasMutedBeforeDeafen.current) {
-          streamRef.current.getAudioTracks().forEach((track) => {
-            if (!track.enabled) track.enabled = true;
-          });
-          // Update isMuted state
-          const firstTrack = streamRef.current.getAudioTracks()[0];
-          setIsMuted(firstTrack ? !firstTrack.enabled : false);
+        if (!wasMutedBeforeDeafen.current) {
+          if (streamRef.current) {
+            streamRef.current.getAudioTracks().forEach((track) => {
+              if (!track.enabled) track.enabled = true;
+            });
+            // Update isMuted state
+            const firstTrack = streamRef.current.getAudioTracks()[0];
+            setIsMuted(firstTrack ? !firstTrack.enabled : false);
+          } else {
+            // No stream: just set unmuted state
+            setIsMuted(false);
+          }
         }
       }
       return next;

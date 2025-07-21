@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { LogEntry } from "@/app/types";
 import { useTentRTCContext } from "../_context/TentRTCContext";
 
@@ -12,10 +12,27 @@ const LogsContent: React.FC<LogsModalProps> = ({ logs }) => {
   const [activeTab, setActiveTab] = useState<number | null>(
     tabNames.length > 0 ? 0 : null
   );
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setActiveTab(0);
   }, [currentTentId]);
+
+  // Get current tab's logs for dependency tracking
+  const currentTabLogs = useMemo(
+    () => (activeTab !== null ? logs[tabNames[activeTab]] : null),
+    [activeTab, logs, tabNames]
+  );
+
+  // Auto-scroll to bottom when logs change
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  }, [currentTabLogs, activeTab]);
 
   return (
     <div
@@ -32,7 +49,7 @@ const LogsContent: React.FC<LogsModalProps> = ({ logs }) => {
           color: "#f3f3f3",
           boxShadow: "0 4px 32px 0 rgba(0,0,0,0.18)",
           border: "1px solid #23272f",
-          minHeight: "100%",
+          height: "100%",
           display: "flex",
           flexDirection: "column",
         }}
@@ -95,6 +112,7 @@ const LogsContent: React.FC<LogsModalProps> = ({ logs }) => {
           ))}
         </div>
         <div
+          ref={scrollContainerRef}
           style={{
             flex: 1,
             background: "#222",
@@ -102,9 +120,12 @@ const LogsContent: React.FC<LogsModalProps> = ({ logs }) => {
             padding: 18,
             boxShadow: "0 2px 8px 0 rgba(0,0,0,0.10)",
             minHeight: 120,
+            overflow: "auto",
           }}
         >
-          {activeTab != null && logs[tabNames[activeTab]] && logs[tabNames[activeTab]].length > 0 ? (
+          {activeTab != null &&
+          logs[tabNames[activeTab]] &&
+          logs[tabNames[activeTab]].length > 0 ? (
             <ul
               style={{
                 fontFamily: "JetBrains Mono, Fira Mono, Menlo, monospace",
