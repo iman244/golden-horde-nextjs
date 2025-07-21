@@ -3,8 +3,8 @@ import type { Tent } from "@/app/data.types";
 import { useTentRTCContext } from "../_context/TentRTCContext";
 import { useTentsLiveUsers } from "../_context/TentsLiveUsersContext";
 import { HiSpeakerWave } from "react-icons/hi2";
-import UserInTentDisplay from "./UserInTentDisplay";
-import ConnectedUserStatus from "./ConnectedUserStatus";
+import OtherTentUser from "./OtherTentUser";
+import SameTentUser from "./SameTentUser";
 
 interface TentListItemProps {
   tent: Tent;
@@ -58,9 +58,9 @@ const TentListItem: React.FC<TentListItemProps> = ({ tent }) => {
           {users.map((username) => (
             <Fragment key={username}>
               {tent.id === currentTentId ? (
-                <ConnectedUserStatus user={username} />
+                <SameTentUser user={username} />
               ) : (
-                <UserInTentDisplay user={username} />
+                <OtherTentUser user={username} />
               )}
             </Fragment>
           ))}

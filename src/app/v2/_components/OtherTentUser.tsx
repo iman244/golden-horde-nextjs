@@ -1,6 +1,6 @@
 import React, { FC } from "react";
 
-const UserInTentDisplay: FC<{ user: string }> = ({ user }) => {
+const OtherTentUser: FC<{ user: string }> = ({ user }) => {
   return (
     <div className="flex items-center justify-between transition-colors hover:bg-gray-700/50 cursor-pointer rounded-md py-1 px-2">
       <div key={user} className="flex items-center gap-2">
@@ -15,4 +15,4 @@ const UserInTentDisplay: FC<{ user: string }> = ({ user }) => {
   );
 };
 
-export default UserInTentDisplay;
+export default OtherTentUser; 

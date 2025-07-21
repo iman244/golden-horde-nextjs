@@ -3,11 +3,27 @@ import { useTentRTCContext } from "../_context/TentRTCContext";
 import clsx from "clsx";
 import { useAuth } from "@/app/context/AuthContext";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { FaMicrophoneSlash } from "react-icons/fa";
+import { LuHeadphoneOff } from "react-icons/lu";
 
-const ConnectedUserStatus: FC<{ user: string }> = ({ user }) => {
+const SameTentUser: FC<{ user: string }> = ({ user }) => {
   const { username } = useAuth();
-  const { connections, reconnectToUser } = useTentRTCContext();
+  const {
+    connections,
+    reconnectToUser,
+    getPeerAudioState,
+    isMuted,
+    isDeafened,
+  } = useTentRTCContext();
   const pc = useMemo(() => connections.get(user)?.pc, [connections, user]);
+
+  // Get audio state (for current user, use local state; for others, use peer state)
+  const audioState = useMemo(() => {
+    if (user === username) {
+      return { isMuted, isDeafened };
+    }
+    return getPeerAudioState(user);
+  }, [user, username, getPeerAudioState, isMuted, isDeafened]);
 
   const [ping, setPing] = useState<number | null>(null);
   // Context menu state
@@ -56,9 +72,6 @@ const ConnectedUserStatus: FC<{ user: string }> = ({ user }) => {
     return () => window.removeEventListener("click", handleClick);
   }, [menuOpen]);
 
-  //   if (!pc) {
-  //     return <UserInTentDisplay user={user} />;
-  //   }
   return (
     <div
       className="group flex items-center justify-between transition-colors hover:bg-gray-700/50 rounded-md py-1 px-2"
@@ -88,10 +101,13 @@ const ConnectedUserStatus: FC<{ user: string }> = ({ user }) => {
         </div>
         <span style={{ color: "#fff", fontSize: 14 }}>{user}</span>
       </div>
-      <div className="flex items-center gap-1">
+      <div className="items-center gap-1 flex">
         {ping !== null && (
-          <span className={"flex items-center gap-1"}>
-            {/* <WifiSignalIcon status={pc.connectionState === "connected" ? "Open" : pc.connectionState === "connecting" ? "Connecting" : "Closed"} latency={ping !== null ? Math.round(ping) : undefined} _icon={{ size: 16 }} /> */}
+          <span
+            className={
+              "hidden group-hover:flex items-center gap-1 mr-2 transition-opacity"
+            }
+          >
             <span
               className={clsx(
                 "rounded px-2 py-0.5 text-xs font-mono bg-gray-700/50 ",
@@ -109,11 +125,28 @@ const ConnectedUserStatus: FC<{ user: string }> = ({ user }) => {
             </span>
           </span>
         )}
+        {/* Audio state icons - moved to the end */}
+        <div className="flex items-center gap-2">
+          {audioState?.isMuted && (
+            <FaMicrophoneSlash
+              className="text-gray-400"
+              size={16}
+              title="Muted"
+            />
+          )}
+          {audioState?.isDeafened && (
+            <LuHeadphoneOff
+              className="text-gray-400"
+              size={16}
+              title="Deafened"
+            />
+          )}
+        </div>
         {/* Three-dot menu button */}
         {user != username && (
           <button
             ref={menuButtonRef}
-            className="p-1 cursor-pointer rounded-full hover:bg-gray-700 focus:outline-none opacity-0 group-hover:opacity-100 transition-opacity"
+            className="cursor-pointer rounded-full hover:bg-gray-700 focus:outline-none hidden group-hover:block transition-opacity"
             onClick={(e) => {
               e.stopPropagation();
               const rect = menuButtonRef.current?.getBoundingClientRect();
@@ -125,7 +158,7 @@ const ConnectedUserStatus: FC<{ user: string }> = ({ user }) => {
             aria-label="Open menu"
             type="button"
           >
-            <BsThreeDotsVertical />
+            <BsThreeDotsVertical size={16} />
           </button>
         )}
       </div>
@@ -154,4 +187,4 @@ const ConnectedUserStatus: FC<{ user: string }> = ({ user }) => {
   );
 };
 
-export default ConnectedUserStatus;
+export default SameTentUser;

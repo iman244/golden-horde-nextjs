@@ -740,22 +740,21 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   // Audio state getter functions
   const getPeerAudioState = useCallback((username: string) => {
-    const connection = connectionsRef.current.get(username);
-    return connection?.audioState || null;
-  }, []);
+    return connections.get(username)?.audioState || null;
+  }, [connections]);
 
   const getAllPeerAudioStates = useCallback(() => {
     const audioStates = new Map<
       string,
       { isMuted: boolean; isDeafened: boolean }
     >();
-    connectionsRef.current.forEach((connection, username) => {
+    connections.forEach((connection, username) => {
       if (connection.audioState) {
         audioStates.set(username, connection.audioState);
       }
     });
     return audioStates;
-  }, []);
+  }, [connections]);
 
   // Cleanup on unmount
   React.useEffect(() => {

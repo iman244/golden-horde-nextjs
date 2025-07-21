@@ -152,9 +152,8 @@ const V2Page = () => {
         openRTCDataChannel={openRTCDataChannel}
         selectedHorde={selectedHorde}
       />
-
-      <div className="flex-1 hidden sm:flex flex-col">
-        <div className="flex-1 flex flex-col">
+      <div className="flex-1 hidden sm:flex flex-col max-h-[100dvh] overflow-y-hidden">
+        <div className="flex-1 flex flex-col h-full">
           {tab == "Logs" && (
             <LogsContent
               logs={{
