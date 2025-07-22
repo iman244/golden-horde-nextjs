@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useHordesQuery } from "../hooks/useHordesQuery";
 import TentListItem from "./_components/TentListItem";
 import LogsContent from "./_components/LogsContent";
@@ -40,15 +40,11 @@ const V2Page = () => {
   const { username } = useAuth();
   const hordes_q = useHordesQuery();
   const hordes = useMemo(() => hordes_q.data?.data || [], [hordes_q]);
-  const { logsMap, wsLogs, currentTentId } = useTentRTCContext();
+  const { logsMap, wsLogs } = useTentRTCContext();
   const [tab, setTab] = useState<"RTCDataChannel" | "Logs">("RTCDataChannel");
 
   const openRTCDataChannel = useCallback(() => setTab("RTCDataChannel"), []);
   const openLogs = useCallback(() => setTab("Logs"), []);
-
-  useEffect(() => {
-    console.log("V2Page currentTentId", currentTentId);
-  }, [currentTentId]);
 
   // State for selected horde
   const [selectedHordeId, setSelectedHordeId] = useState(hordes[0]?.id || null);

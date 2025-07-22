@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useMemo } from "react";
 import { useTentRTCContext } from "../_context/TentRTCContext";
 import { FiX } from "react-icons/fi";
 
@@ -10,10 +10,6 @@ const errorMessages: Record<string, string> = {
 
 const MediaErrorModal = () => {
   const { mediaError, clearMediaError, retryAddTrack } = useTentRTCContext();
-
-  useEffect(() => {
-    console.log("MediaErrorModal mediaError", mediaError);
-  }, [mediaError]);
 
   const errorMessage = useMemo(() => {
     if (!mediaError) return "";

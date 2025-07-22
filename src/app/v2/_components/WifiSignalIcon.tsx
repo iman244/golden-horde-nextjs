@@ -44,12 +44,8 @@ const WifiSignalIcon: FC<WifiSignalIconProps> = ({
       };
     } else if (status === "Connecting") {
       return {
-        icon: (
-          <span className="text-yellow-400 text-xs font-semibold">
-            Connecting...
-          </span>
-        ),
-        tooltip: undefined,
+        icon: <BiWifi className="text-yellow-500" {..._icon} />,
+        tooltip: "Connecting...",
       };
     } else {
       return {

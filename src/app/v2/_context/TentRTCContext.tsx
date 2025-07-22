@@ -158,7 +158,6 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const unsubscribeRef = React.useRef<(() => void) | null>(null);
 
   const leaveTent = useCallback(async () => {
-    console.log("leave tent is running");
     // Unsubscribe from onSignal if subscribed
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
@@ -180,7 +179,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   const onconnectionstatechange = useCallback(
     (user: string, pc: RTCPeerConnection) => async (ev: Event) => {
-      console.log("onconnectionstatechange ev", ev);
+    //   console.log("onconnectionstatechange ev", ev);
       const { connectionState } = pc;
       addLog(
         user,
@@ -201,17 +200,18 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
   );
 
   const onsignalingstatechange = useCallback(
+      // @ts-ignore
+      (user: string, pc: RTCPeerConnection) => (ev: Event) => {
+          addLog(user, `Signaling state changed: ${pc.signalingState}`, "info");
+        },
+        [addLog]
+    );
+    
+    const oniceconnectionstatechange = useCallback(
+      // @ts-ignore
     (user: string, pc: RTCPeerConnection) => (ev: Event) => {
-      console.log("onsignalingstatechange ev", ev);
-      addLog(user, `Signaling state changed: ${pc.signalingState}`, "info");
-    },
-    [addLog]
-  );
 
-  const oniceconnectionstatechange = useCallback(
-    (user: string, pc: RTCPeerConnection) => (ev: Event) => {
-      console.log("oniceconnectionstatechange ev", ev);
-      addLog(
+        addLog(
         user,
         `ICE connection state changed: ${pc.iceConnectionState}`,
         "info"
@@ -298,7 +298,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       async (ev: RTCTrackEvent) => {
         const pre = connectionsRef.current.get(target_user);
         const user_stream = ev.streams[0];
-        console.log("ontrack ev", ev);
+        // console.log("ontrack ev", ev);
         addLog(target_user, "Track Received");
         updateUserData(target_user, { pc, ...pre, stream: user_stream });
       },
@@ -367,7 +367,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       try {
         addLog(target_user, `Calling addTrack for ${target_user}`, "info");
         await addTrack(target_user, pc);
-        console.log("negotiateConnection pc.getSenders()", pc.getSenders());
+        // console.log("negotiateConnection pc.getSenders()", pc.getSenders());
       } catch (err) {
         console.error(
           target_user,
@@ -671,12 +671,13 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
                 `Audio state updated: muted=${msg.isMuted}, deafened=${msg.isDeafened}`,
                 "info"
               );
-            } else {
+            } else if (msg.username !== username) {
               // Store audio state for when connection is created
               pendingAudioStatesRef.current.set(msg.username, {
                 isMuted: msg.isMuted,
                 isDeafened: msg.isDeafened,
               });
+
               addLog(
                 msg.username,
                 `Audio state stored (pending connection): muted=${msg.isMuted}, deafened=${msg.isDeafened}`,

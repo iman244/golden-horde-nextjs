@@ -5,6 +5,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FaMicrophoneSlash } from "react-icons/fa";
 import { LuHeadphoneOff } from "react-icons/lu";
+import { useAudioAnalyzer } from "../_hooks/useAudioAnalyzer";
 
 const SameTentUser: FC<{ user: string }> = ({ user }) => {
   const { username } = useAuth();
@@ -16,6 +17,8 @@ const SameTentUser: FC<{ user: string }> = ({ user }) => {
     isDeafened,
   } = useTentRTCContext();
   const pc = useMemo(() => connections.get(user)?.pc, [connections, user]);
+  const stream = useMemo(() => connections.get(user)?.stream || null, [connections, user]);
+  const isSpeaking = useAudioAnalyzer(stream, username!);
 
   // Get audio state (for current user, use local state; for others, use peer state)
   const audioState = useMemo(() => {
@@ -79,7 +82,7 @@ const SameTentUser: FC<{ user: string }> = ({ user }) => {
     >
       <div key={user} className="flex items-center gap-2">
         <div className="relative w-8 h-8">
-          <div className="rounded-avatar">
+          <div className={clsx("rounded-avatar", isSpeaking && "speaking")}>
             <span className="mt-[2px]">{user.charAt(0).toUpperCase()}</span>
           </div>
 
@@ -146,7 +149,7 @@ const SameTentUser: FC<{ user: string }> = ({ user }) => {
         {user != username && (
           <button
             ref={menuButtonRef}
-            className="cursor-pointer rounded-full hover:bg-gray-700 focus:outline-none hidden group-hover:block transition-opacity"
+            className="cursor-pointer rounded-full focus:outline-none hidden group-hover:block transition-opacity"
             onClick={(e) => {
               e.stopPropagation();
               const rect = menuButtonRef.current?.getBoundingClientRect();

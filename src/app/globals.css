@@ -221,7 +221,11 @@ body {
 }
 
 .rounded-avatar {
-    @apply w-8 h-8 rounded-full border-2 border-yellow-400 bg-[#23272f] flex items-center justify-center font-bold text-yellow-400 text-base
+    @apply w-8 h-8 rounded-full border-3 border-transparent bg-[#23272f] flex items-center justify-center font-bold text-yellow-400 text-base transition-all duration-100
+}
+
+.rounded-avatar.speaking {
+    @apply border-green-500 border-3;
 }
 
 .action-container {

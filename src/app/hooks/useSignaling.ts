@@ -37,13 +37,6 @@ export function useSignaling<T extends MessageWithType>(
   const [connectionKey, setConnectionKey] = useState(0);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(()=>{
-    console.log("channelId", channelId)
-    console.log("connectionKey", connectionKey)
-  },[
-    channelId, connectionKey
-  ])
-
   // Send a signaling message
   const sendSignal = useCallback(
     (msg: T) => {

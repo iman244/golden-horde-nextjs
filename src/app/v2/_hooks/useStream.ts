@@ -11,11 +11,11 @@ export type MediaErrorType =
   | string;
 
 function hasTrack(senders: RTCRtpSender[], kind: "audio" | "video") {
-  console.log("hasTrack senders", senders);
-  console.log(
-    "senders.some((sender) => sender.track && sender.track.kind === kind)",
-    senders.some((sender) => sender.track && sender.track.kind === kind)
-  );
+//   console.log("hasTrack senders", senders);
+//   console.log(
+//     "senders.some((sender) => sender.track && sender.track.kind === kind)",
+//     senders.some((sender) => sender.track && sender.track.kind === kind)
+//   );
   return senders.some((sender) => sender.track && sender.track.kind === kind);
 }
 
@@ -121,7 +121,7 @@ const useStream = ({ addLog }: { addLog: addLogType }) => {
         const senders = pc.getSenders();
         const audioTrack = streamRef.current.getAudioTracks()[0];
         // const videoTrack = streamRef.current.getVideoTracks()[0];
-        console.log("audioTrack", audioTrack);
+        // console.log("audioTrack", audioTrack);
         if (audioTrack && !hasTrack(senders, "audio")) {
           const tracks = streamRef.current.getTracks();
           const retryStream = tracks.some((t) => t.readyState == "ended");
@@ -136,10 +136,10 @@ const useStream = ({ addLog }: { addLog: addLogType }) => {
             });
           }
           tracks.forEach((t) => pc.addTrack(t, streamRef.current!));
-          console.log("addTrack tracks", tracks);
+        //   console.log("addTrack tracks", tracks);
           addLog(target_user, `Add Tracks`);
         } else {
-          console.log("senders", senders);
+        //   console.log("senders", senders);
           addLog(
             target_user,
             `Skipping addTrack: senders already present, track=${JSON.stringify(
