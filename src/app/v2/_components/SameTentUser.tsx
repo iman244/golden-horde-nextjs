@@ -10,6 +10,7 @@ import { useAudioAnalyzer } from "../_hooks/useAudioAnalyzer";
 const SameTentUser: FC<{ user: string }> = ({ user }) => {
   const { username } = useAuth();
   const {
+    stream: localUserStream,
     connections,
     reconnectToUser,
     getPeerAudioState,
@@ -17,8 +18,13 @@ const SameTentUser: FC<{ user: string }> = ({ user }) => {
     isDeafened,
   } = useTentRTCContext();
   const pc = useMemo(() => connections.get(user)?.pc, [connections, user]);
-  const stream = useMemo(() => connections.get(user)?.stream || null, [connections, user]);
-  const isSpeaking = useAudioAnalyzer(stream, username!);
+  const stream = useMemo(() => {
+    if (user === username) {
+      return localUserStream;
+    }
+    return connections.get(user)?.stream || null;
+  }, [connections, user, localUserStream]);
+  const isSpeaking = useAudioAnalyzer(stream, user);
 
   // Get audio state (for current user, use local state; for others, use peer state)
   const audioState = useMemo(() => {

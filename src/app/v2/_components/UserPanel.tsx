@@ -13,6 +13,7 @@ import OpenRTCDataChannelButton from "./OpenRTCDataChannelButton";
 import RTCDataChannelPanel from "./RTCDataChannelPanel";
 import OpenLogsButton from "./OpenLogsButton";
 import { Horde } from "@/app/data.types";
+import { useAudioAnalyzer } from "../_hooks/useAudioAnalyzer";
 
 interface UserPanelProps {
   tab: "RTCDataChannel" | "Logs";
@@ -28,13 +29,14 @@ const UserPanel: React.FC<UserPanelProps> = ({
   selectedHorde,
 }) => {
   const { username } = useAuth();
-  const { logsMap, wsLogs, leaveTent, currentTentId, wsStatus, wsLatency, isMuted, isDeafened, toggleDeafen, toggleMute } =
+  const { stream, logsMap, wsLogs, leaveTent, currentTentId, wsStatus, wsLatency, isMuted, isDeafened, toggleDeafen, toggleMute } =
     useTentRTCContext();
   const [shareScreen, setShareScreen] = useState(false);
   const toggleShareScreen = useCallback(
     () => setShareScreen((pre) => !pre),
     []
   );
+  const isSpeaking = useAudioAnalyzer(stream, username!);
 
   const selectedTent = useMemo(
     () => selectedHorde?.tents.find((t) => t.id === currentTentId),
@@ -128,7 +130,7 @@ const UserPanel: React.FC<UserPanelProps> = ({
         )}
         <div className="flex justify-between">
           <div className="flex gap-2 items-center">
-            <div className="rounded-avatar w-9! h-9!">
+            <div className={clsx("rounded-avatar w-9! h-9!", isSpeaking && "speaking")}>
               {username[0].toUpperCase()}
             </div>
             <span className="text-lg">{username}</span>

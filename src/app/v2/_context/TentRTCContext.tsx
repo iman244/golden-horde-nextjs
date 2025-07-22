@@ -31,6 +31,7 @@ type userRTCData = {
 type connectionsType = Map<string, userRTCData>;
 
 interface TentRTCContextType {
+  stream: MediaStream | null;
   connections: connectionsType;
   connectionsRef: connectionsType;
   currentTentId: string | number | null;
@@ -111,6 +112,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
   );
 
   const {
+    stream,
     addTrack,
     mediaError,
     clearMediaError,
@@ -769,6 +771,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
   return (
     <TentRTCContext.Provider
       value={{
+        stream,
         connections,
         connectionsRef: connectionsRef.current,
         logsMap,

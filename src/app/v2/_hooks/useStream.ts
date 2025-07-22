@@ -38,6 +38,15 @@ const getInitialDeafened = () => {
 };
 
 const useStream = ({ addLog }: { addLog: addLogType }) => {
+    const streamRef = useRef<MediaStream>(null);
+    const [stream, setStream] = useState<MediaStream | null>(null);
+
+    const updateStream = useCallback((stream: MediaStream) => {
+        streamRef.current = stream;
+        setStream(stream);
+
+    }, []);
+
   const [mediaError, setMediaError] = useState<MediaErrorType | null>(null);
   const [isMuted, setIsMuted] = useState(getInitialMuted);
   const [isDeafened, setIsDeafened] = useState(getInitialDeafened);
@@ -104,14 +113,18 @@ const useStream = ({ addLog }: { addLog: addLogType }) => {
     });
   }, [isMuted]);
 
-  const streamRef = useRef<MediaStream>(null);
+
   const addTrack = useCallback(
     async (target_user: string, pc: RTCPeerConnection) => {
       try {
         if (!streamRef.current) {
-          streamRef.current = await navigator.mediaDevices.getUserMedia({
+
+          const newStream = await navigator.mediaDevices.getUserMedia({
             audio: true,
           });
+
+          streamRef.current = newStream;
+          updateStream(newStream);
           // When stream is acquired, set tracks.enabled according to isMuted
           streamRef.current.getAudioTracks().forEach((track) => {
             track.enabled = !isMuted;
@@ -126,9 +139,11 @@ const useStream = ({ addLog }: { addLog: addLogType }) => {
           const tracks = streamRef.current.getTracks();
           const retryStream = tracks.some((t) => t.readyState == "ended");
           if (retryStream) {
-            streamRef.current = await navigator.mediaDevices.getUserMedia({
+            const newStream = await navigator.mediaDevices.getUserMedia({
               audio: true,
             });
+            streamRef.current = newStream;
+            updateStream(newStream);
           }
           if (isMuted) {
             streamRef.current.getAudioTracks().forEach((track) => {
@@ -200,6 +215,7 @@ const useStream = ({ addLog }: { addLog: addLogType }) => {
   }, [isDeafened]);
 
   return {
+    stream,
     addTrack,
     mediaError,
     clearMediaError,
