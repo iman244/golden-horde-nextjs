@@ -4,6 +4,7 @@ import clsx from "clsx";
 
 const ConnectionsList: React.FC = () => {
   const { connections } = useTentRTCContext();
+
   return (
     <div className="mb-3 flex gap-2 p-2">
       {Array.from(connections).length === 0 && (
@@ -12,8 +13,8 @@ const ConnectionsList: React.FC = () => {
       {Array.from(connections).map(([user, { pc }]) => (
         <div key={user} className="relative w-8 h-8">
           {/* Avatar with first letter */}
-          <div className="rounded-avatar">
-            {user.charAt(0).toUpperCase()}
+          <div className={clsx("rounded-avatar")}>
+            <span className="mt-[2px]">{user.charAt(0).toUpperCase()}</span>
           </div>
           {/* Status dot in bottom right */}
           <span
@@ -21,10 +22,12 @@ const ConnectionsList: React.FC = () => {
               "status-dot",
               pc.connectionState === "connected" && "status-dot-connected",
               pc.connectionState === "connecting" && "status-dot-connecting",
-              pc.connectionState === "disconnected" && "status-dot-disconnected",
+              pc.connectionState === "disconnected" &&
+                "status-dot-disconnected",
               pc.connectionState !== "connected" &&
                 pc.connectionState !== "connecting" &&
-                pc.connectionState !== "disconnected" && "status-dot-unknown"
+                pc.connectionState !== "disconnected" &&
+                "status-dot-unknown"
             )}
           />
         </div>
@@ -33,4 +36,4 @@ const ConnectionsList: React.FC = () => {
   );
 };
 
-export default ConnectionsList; 
+export default ConnectionsList;

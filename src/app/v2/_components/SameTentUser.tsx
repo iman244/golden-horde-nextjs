@@ -1,38 +1,24 @@
 import React, { FC, useMemo, useState, useEffect } from "react";
 import { useTentRTCContext } from "../_context/TentRTCContext";
 import clsx from "clsx";
-import { useAuth } from "@/app/context/AuthContext";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FaMicrophoneSlash } from "react-icons/fa";
 import { LuHeadphoneOff } from "react-icons/lu";
-import { useAudioAnalyzer } from "../_hooks/useAudioAnalyzer";
+import { useSimpleAudioDetection } from "../_hooks/useSimpleAudioDetection";
 
 const SameTentUser: FC<{ user: string }> = ({ user }) => {
-  const { username } = useAuth();
   const {
-    stream: localUserStream,
     connections,
     reconnectToUser,
     getPeerAudioState,
-    isMuted,
-    isDeafened,
   } = useTentRTCContext();
+  
   const pc = useMemo(() => connections.get(user)?.pc, [connections, user]);
-  const stream = useMemo(() => {
-    if (user === username) {
-      return localUserStream;
-    }
-    return connections.get(user)?.stream || null;
-  }, [connections, user, localUserStream]);
-  const isSpeaking = useAudioAnalyzer(stream, user);
+  const stream = useMemo(() => connections.get(user)?.stream || null, [connections, user]);
+  const isSpeaking = useSimpleAudioDetection(stream, user);
 
-  // Get audio state (for current user, use local state; for others, use peer state)
-  const audioState = useMemo(() => {
-    if (user === username) {
-      return { isMuted, isDeafened };
-    }
-    return getPeerAudioState(user);
-  }, [user, username, getPeerAudioState, isMuted, isDeafened]);
+  // Get audio state for the remote user
+  const audioState = getPeerAudioState(user);
 
   const [ping, setPing] = useState<number | null>(null);
   // Context menu state
@@ -134,7 +120,7 @@ const SameTentUser: FC<{ user: string }> = ({ user }) => {
             </span>
           </span>
         )}
-        {/* Audio state icons - moved to the end */}
+        {/* Audio state icons */}
         <div className="flex items-center gap-2">
           {audioState?.isMuted && (
             <FaMicrophoneSlash
@@ -152,27 +138,25 @@ const SameTentUser: FC<{ user: string }> = ({ user }) => {
           )}
         </div>
         {/* Three-dot menu button */}
-        {user != username && (
-          <button
-            ref={menuButtonRef}
-            className="cursor-pointer rounded-full focus:outline-none hidden group-hover:block transition-opacity"
-            onClick={(e) => {
-              e.stopPropagation();
-              const rect = menuButtonRef.current?.getBoundingClientRect();
-              setMenuOpen((v) => !v);
-              if (rect) {
-                setMenuPosition({ x: rect.left, y: rect.bottom + 4 });
-              }
-            }}
-            aria-label="Open menu"
-            type="button"
-          >
-            <BsThreeDotsVertical size={16} />
-          </button>
-        )}
+        <button
+          ref={menuButtonRef}
+          className="cursor-pointer rounded-full focus:outline-none hidden group-hover:block transition-opacity"
+          onClick={(e) => {
+            e.stopPropagation();
+            const rect = menuButtonRef.current?.getBoundingClientRect();
+            setMenuOpen((v) => !v);
+            if (rect) {
+              setMenuPosition({ x: rect.left, y: rect.bottom + 4 });
+            }
+          }}
+          aria-label="Open menu"
+          type="button"
+        >
+          <BsThreeDotsVertical size={16} />
+        </button>
       </div>
       {/* Menu */}
-      {user != username && menuOpen && menuPosition && (
+      {menuOpen && menuPosition && (
         <div
           className="fixed z-[100] bg-gray-800 border border-gray-700 rounded shadow-lg py-1 min-w-[120px]"
           style={{

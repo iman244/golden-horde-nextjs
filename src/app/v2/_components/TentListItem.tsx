@@ -5,6 +5,8 @@ import { useTentsLiveUsers } from "../_context/TentsLiveUsersContext";
 import { HiSpeakerWave } from "react-icons/hi2";
 import OtherTentUser from "./OtherTentUser";
 import SameTentUser from "./SameTentUser";
+import { useAuth } from "@/app/context/AuthContext";
+import LocalUserInTent from "./LocalUserInTent";
 
 interface TentListItemProps {
   tent: Tent;
@@ -13,6 +15,7 @@ interface TentListItemProps {
 // getStatusIcon function removed (was unused)
 
 const TentListItem: React.FC<TentListItemProps> = ({ tent }) => {
+  const { username } = useAuth();
   const { currentTentId, joinTent } = useTentRTCContext();
   const { getParticipantsByTentId } = useTentsLiveUsers();
   const users = getParticipantsByTentId(tent.id);
@@ -55,12 +58,14 @@ const TentListItem: React.FC<TentListItemProps> = ({ tent }) => {
             gap: "8px",
           }}
         >
-          {users.map((username) => (
-            <Fragment key={username}>
-              {tent.id === currentTentId ? (
-                <SameTentUser user={username} />
+          {users.map((user) => (
+            <Fragment key={user}>
+              {user === username ? (
+                <LocalUserInTent />
+              ) : tent.id === currentTentId ? (
+                <SameTentUser user={user} />
               ) : (
-                <OtherTentUser user={username} />
+                <OtherTentUser user={user} />
               )}
             </Fragment>
           ))}

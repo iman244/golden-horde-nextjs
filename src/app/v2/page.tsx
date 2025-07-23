@@ -9,6 +9,7 @@ import MediaErrorModal from "./_components/MediaErrorModal";
 import { useAuth } from "../context/AuthContext";
 import UserPanel from "./_components/UserPanel";
 import RTCDataChannelPanel from "./_components/RTCDataChannelPanel";
+import Settings from "./_components/Settings";
 
 // [+] dot sabz
 // [+] mute
@@ -35,16 +36,18 @@ import RTCDataChannelPanel from "./_components/RTCDataChannelPanel";
 // audio device
 // audio device list
 
+export type Tab = "RTCDataChannel" | "Logs" | "Settings";
 
 const V2Page = () => {
   const { username } = useAuth();
   const hordes_q = useHordesQuery();
   const hordes = useMemo(() => hordes_q.data?.data || [], [hordes_q]);
   const { logsMap, wsLogs } = useTentRTCContext();
-  const [tab, setTab] = useState<"RTCDataChannel" | "Logs">("RTCDataChannel");
+  const [tab, setTab] = useState<Tab>("RTCDataChannel");
 
-  const openRTCDataChannel = useCallback(() => setTab("RTCDataChannel"), []);
-  const openLogs = useCallback(() => setTab("Logs"), []);
+//   const openRTCDataChannel = useCallback(() => setTab("RTCDataChannel"), []);
+//   const openLogs = useCallback(() => setTab("Logs"), []);
+  const openTab = useCallback((tab: "RTCDataChannel" | "Logs" | "Settings") => setTab(tab), []);
 
   // State for selected horde
   const [selectedHordeId, setSelectedHordeId] = useState(hordes[0]?.id || null);
@@ -144,8 +147,7 @@ const V2Page = () => {
 
       <UserPanel 
         tab={tab} 
-        openLogs={openLogs} 
-        openRTCDataChannel={openRTCDataChannel}
+        openTab={openTab}
         selectedHorde={selectedHorde}
       />
       <div className="flex-1 hidden sm:flex flex-col max-h-[100dvh] overflow-y-hidden">
@@ -159,6 +161,7 @@ const V2Page = () => {
             />
           )}
           {tab == "RTCDataChannel" && <RTCDataChannelPanel />}
+          {tab == "Settings" && <Settings />}
         </div>
       </div>
     </div>

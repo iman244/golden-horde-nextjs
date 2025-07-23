@@ -3,7 +3,13 @@ import { useTentRTCContext } from "../_context/TentRTCContext";
 import { useAuth } from "../../context/AuthContext";
 import clsx from "clsx";
 import { FaMicrophone, FaMicrophoneSlash, FaPhone } from "react-icons/fa";
-import { LuHeadphoneOff, LuHeadphones, LuMonitorPlay, LuMonitorX } from "react-icons/lu";
+import {
+  LuHeadphoneOff,
+  LuHeadphones,
+  LuMonitorPlay,
+  LuMonitorX,
+  LuSettings,
+} from "react-icons/lu";
 import WifiSignalIcon from "./WifiSignalIcon";
 import TentStatusText from "./TentStatusText";
 
@@ -13,30 +19,46 @@ import OpenRTCDataChannelButton from "./OpenRTCDataChannelButton";
 import RTCDataChannelPanel from "./RTCDataChannelPanel";
 import OpenLogsButton from "./OpenLogsButton";
 import { Horde } from "@/app/data.types";
-import { useAudioAnalyzer } from "../_hooks/useAudioAnalyzer";
+import { Tab } from "../page";
+import Settings from "./Settings";
 
 interface UserPanelProps {
-  tab: "RTCDataChannel" | "Logs";
-  openLogs: () => void;
-  openRTCDataChannel: () => void;
+  tab: Tab;
+  openTab: (tab: Tab) => void;
   selectedHorde: Horde | undefined;
 }
 
 const UserPanel: React.FC<UserPanelProps> = ({
   tab,
-  openLogs,
-  openRTCDataChannel,
+  openTab,
   selectedHorde,
 }) => {
   const { username } = useAuth();
-  const { stream, logsMap, wsLogs, leaveTent, currentTentId, wsStatus, wsLatency, isMuted, isDeafened, toggleDeafen, toggleMute } =
-    useTentRTCContext();
+  const {
+    isSpeaking,
+    logsMap,
+    wsLogs,
+    leaveTent,
+    currentTentId,
+    wsStatus,
+    wsLatency,
+    isMuted,
+    isDeafened,
+    toggleDeafen,
+    toggleMute,
+  } = useTentRTCContext();
   const [shareScreen, setShareScreen] = useState(false);
+  const [showVadSettings, setShowVadSettings] = useState(false);
+
   const toggleShareScreen = useCallback(
     () => setShareScreen((pre) => !pre),
     []
   );
-  const isSpeaking = useAudioAnalyzer(stream, username!);
+
+  const toggleVadSettings = useCallback(
+    () => setShowVadSettings((pre) => !pre),
+    []
+  );
 
   const selectedTent = useMemo(
     () => selectedHorde?.tents.find((t) => t.id === currentTentId),
@@ -93,7 +115,7 @@ const UserPanel: React.FC<UserPanelProps> = ({
               </button>
               <OpenLogsButton
                 className={clsx("hidden! sm:flex!", tab === "Logs" && "active")}
-                onClick={openLogs}
+                onClick={() => openTab("Logs")}
               />
               <Drawer
                 openUI={(onOpen) => (
@@ -112,7 +134,7 @@ const UserPanel: React.FC<UserPanelProps> = ({
                   "hidden! sm:flex!",
                   tab === "RTCDataChannel" && "active"
                 )}
-                onClick={openRTCDataChannel}
+                onClick={() => openTab("RTCDataChannel")}
               />
               <Drawer
                 openUI={(onOpen) => (
@@ -128,19 +150,63 @@ const UserPanel: React.FC<UserPanelProps> = ({
             <div className="border-t border-gray-700" />
           </>
         )}
+
         <div className="flex justify-between">
           <div className="flex gap-2 items-center">
-            <div className={clsx("rounded-avatar w-9! h-9!", isSpeaking && "speaking")}>
+            <div
+              className={clsx(
+                "rounded-avatar w-9! h-9!",
+                isSpeaking && !isMuted && "speaking"
+              )}
+            >
               {username[0].toUpperCase()}
             </div>
             <span className="text-lg">{username}</span>
           </div>
           <div className="flex gap-1">
-            <button className={clsx("action-container", isMuted && "disabled")} onClick={toggleMute}>
-              {isMuted ? <FaMicrophoneSlash size={20} /> : <FaMicrophone size={20} />}
+            <button
+              className={clsx("action-container", isMuted && "disabled")}
+              onClick={toggleMute}
+            >
+              {isMuted ? (
+                <FaMicrophoneSlash size={20} />
+              ) : (
+                <FaMicrophone size={20} />
+              )}
             </button>
-            <button className={clsx("action-container", isDeafened && "disabled")} onClick={toggleDeafen}>
-            {isDeafened ? <LuHeadphoneOff size={20} /> : <LuHeadphones size={20} />}
+            <button
+              className={clsx("action-container", isDeafened && "disabled")}
+              onClick={toggleDeafen}
+            >
+              {isDeafened ? (
+                <LuHeadphoneOff size={20} />
+              ) : (
+                <LuHeadphones size={20} />
+              )}
+            </button>
+            <Drawer
+              openUI={(onOpen) => (
+                <button
+                  onClick={onOpen}
+                  className={clsx(
+                    "action-container sm:hidden!",
+                    showVadSettings && "active"
+                  )}
+                >
+                  <LuSettings size={20} />
+                </button>
+              )}
+            >
+              <Settings  />
+            </Drawer>
+            <button
+              onClick={() => openTab("Settings")}
+              className={clsx(
+                "action-container hidden! sm:block!",
+                showVadSettings && "active"
+              )}
+            >
+              <LuSettings size={20} />
             </button>
           </div>
         </div>
