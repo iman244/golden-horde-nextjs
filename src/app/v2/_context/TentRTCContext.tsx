@@ -1,14 +1,12 @@
 "use client";
-import { LogEntry } from "@/app/hooks/useLogs";
 import React, {
   createContext,
-  Dispatch,
   FC,
   ReactNode,
-  SetStateAction,
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -20,10 +18,11 @@ import {
   useRTCDataChannel,
   RTCDataChannelMessageType,
 } from "../_hooks/useRTCDataChannel";
-import { LogsMap, useKeyedLogs } from "@/app/v2/_hooks/useKeyedLogs";
-import useStream, { MediaErrorType } from "../_hooks/useStream";
-import { VadThresholds } from "../_hooks/useLocalVAD";
-// import useStream from "../_hooks/useStream";
+import { createLogger } from "../_utils/logger";
+import { useTentLogsContext } from "./TentLogsContext";
+import { useStreamContext } from "./StreamContext";
+import { LogEntry } from "@/app/hooks/useLogs";
+import { useTentContext } from "./TentProvider";
 
 type userRTCData = {
   pc: RTCPeerConnection;
@@ -34,37 +33,17 @@ type userRTCData = {
 type connectionsType = Map<string, userRTCData>;
 
 interface TentRTCContextType {
-  stream: MediaStream | null;
-  playLocalUserAudioPreview: () => Promise<MediaStream>;
-  stopLocalUserAudioPreview: () => void;
-  isSpeaking: boolean;
   connections: connectionsType;
   connectionsRef: connectionsType;
   currentTentId: string | number | null;
   joinTent: (tent_id: string | number) => Promise<void>;
   leaveTent: () => Promise<void>;
-  logsMap: LogsMap; // LogsMap is now Map<string, LogEntry[]>
-  wsLogs: LogEntry[];
+  wsLogs: LogEntry[]; // Will be handled by TentSignalingContext later
   wsLatency: number | null;
   wsStatus: WebSocketStatusType;
   dcMessages: RTCDataChannelMessageType[];
   senddcMessage: (message: string) => void;
-  mediaError: MediaErrorType | null;
-  clearMediaError: () => void;
   retryAddTrack: () => Promise<void>;
-  isMuted: boolean;
-  toggleMute: () => void;
-  setIsMuted: Dispatch<SetStateAction<boolean>>;
-  isDeafened: boolean;
-  toggleDeafen: () => void;
-  setIsDeafened: Dispatch<SetStateAction<boolean>>;
-  vadEnabled: boolean;
-  toggleVad: () => void;
-  vadThreshold: number;
-  setVadThreshold: (threshold: number) => void;
-  vadThresholds: VadThresholds;
-  currentVolume: number;
-  displayVolume: number;
   reconnectToUser: (target_user: string) => Promise<void>;
   // Audio state getters
   getPeerAudioState: (
@@ -78,12 +57,13 @@ interface TentRTCContextType {
 
 const TentRTCContext = createContext<TentRTCContextType | undefined>(undefined);
 
+const { log } = createLogger("TentRTCProvider");
+
 const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
+  log("TentRTCProvider initialized");
   const { username } = useAuth();
-  const { clearLogs, logsMap, addLog, removeLog } = useKeyedLogs();
-  const [currentTentId, setCurrentTentId] = useState<string | number | null>(
-    null
-  );
+  const { clearLogs, addLog, removeLog } = useTentLogsContext();
+  const { currentTentId, setCurrentTentId } = useTentContext();
 
   const connectionsRef = useRef<connectionsType>(new Map());
   const [connections, setConnections] = useState<connectionsType>(new Map());
@@ -126,28 +106,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
     [addLog]
   );
 
-  const {
-    stream,
-    playLocalUserAudioPreview,
-    stopLocalUserAudioPreview,
-    isSpeaking,
-    addTrack,
-    mediaError,
-    clearMediaError,
-    isMuted,
-    toggleMute,
-    setIsMuted,
-    isDeafened,
-    toggleDeafen,
-    setIsDeafened,
-    vadEnabled,
-    toggleVad,
-    vadThreshold,
-    setVadThreshold,
-    vadThresholds,
-    currentVolume,
-    displayVolume,
-  } = useStream({ addLog, startStream: currentTentId !== null, currentTentId });
+  const { addTrack, isMuted, isDeafened } = useStreamContext();
 
   const {
     dcMessages,
@@ -163,7 +122,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
         if (dc && dc.readyState == "open") {
           dc.send(message);
         } else {
-          window.alert("dc is not connect");
+          console.warn("Data channel is not connected");
         }
       });
     },
@@ -207,7 +166,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
   }, [currentTentId, closeWebSocket, clearMessages]);
 
   const onconnectionstatechange = useCallback(
-    (user: string, pc: RTCPeerConnection) => async (ev: Event) => {
+    (user: string, pc: RTCPeerConnection) => async () => {
       //   console.log("onconnectionstatechange ev", ev);
       const { connectionState } = pc;
       addLog(
@@ -230,7 +189,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   const onsignalingstatechange = useCallback(
     // @ts-ignore
-    (user: string, pc: RTCPeerConnection) => (ev: Event) => {
+    (user: string, pc: RTCPeerConnection) => () => {
       addLog(user, `Signaling state changed: ${pc.signalingState}`, "info");
     },
     [addLog]
@@ -238,7 +197,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   const oniceconnectionstatechange = useCallback(
     // @ts-ignore
-    (user: string, pc: RTCPeerConnection) => (ev: Event) => {
+    (user: string, pc: RTCPeerConnection) => () => {
       addLog(
         user,
         `ICE connection state changed: ${pc.iceConnectionState}`,
@@ -801,45 +760,43 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
     };
   }, []);
 
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue: TentRTCContextType = useMemo(
+    () => ({
+      connections,
+      connectionsRef: connectionsRef.current,
+      wsLogs,
+      reconnectToUser,
+      joinTent,
+      leaveTent,
+      wsLatency,
+      wsStatus,
+      currentTentId,
+      dcMessages,
+      senddcMessage,
+      retryAddTrack,
+      getPeerAudioState,
+      getAllPeerAudioStates,
+    }),
+    [
+      connections,
+      wsLogs,
+      reconnectToUser,
+      joinTent,
+      leaveTent,
+      wsLatency,
+      wsStatus,
+      currentTentId,
+      dcMessages,
+      senddcMessage,
+      retryAddTrack,
+      getPeerAudioState,
+      getAllPeerAudioStates,
+    ]
+  );
+
   return (
-    <TentRTCContext.Provider
-      value={{
-        stream,
-        playLocalUserAudioPreview,
-        stopLocalUserAudioPreview,
-        isSpeaking,
-        connections,
-        connectionsRef: connectionsRef.current,
-        logsMap,
-        wsLogs,
-        reconnectToUser,
-        joinTent,
-        leaveTent,
-        wsLatency,
-        wsStatus,
-        currentTentId,
-        dcMessages,
-        senddcMessage,
-        mediaError,
-        clearMediaError,
-        retryAddTrack,
-        isMuted,
-        toggleMute,
-        setIsMuted,
-        isDeafened,
-        toggleDeafen,
-        setIsDeafened,
-        vadEnabled,
-        toggleVad,
-        vadThreshold,
-        setVadThreshold,
-        vadThresholds,
-        currentVolume,
-        displayVolume,
-        getPeerAudioState,
-        getAllPeerAudioStates,
-      }}
-    >
+    <TentRTCContext.Provider value={contextValue}>
       {children}
     </TentRTCContext.Provider>
   );

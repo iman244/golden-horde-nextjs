@@ -4,6 +4,7 @@ import { useHordesQuery } from "../hooks/useHordesQuery";
 import TentListItem from "./_components/TentListItem";
 import LogsContent from "./_components/LogsContent";
 import { useTentRTCContext } from "./_context/TentRTCContext";
+import { useTentLogsContext } from "./_context/TentLogsContext";
 import Audios from "./_components/Audios";
 import MediaErrorModal from "./_components/MediaErrorModal";
 import { useAuth } from "../context/AuthContext";
@@ -42,7 +43,8 @@ const V2Page = () => {
   const { username } = useAuth();
   const hordes_q = useHordesQuery();
   const hordes = useMemo(() => hordes_q.data?.data || [], [hordes_q]);
-  const { logsMap, wsLogs } = useTentRTCContext();
+  const { wsLogs } = useTentRTCContext();
+  const { logsMap } = useTentLogsContext();
   const [tab, setTab] = useState<Tab>("RTCDataChannel");
 
 //   const openRTCDataChannel = useCallback(() => setTab("RTCDataChannel"), []);

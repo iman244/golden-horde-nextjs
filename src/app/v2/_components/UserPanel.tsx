@@ -21,6 +21,9 @@ import OpenLogsButton from "./OpenLogsButton";
 import { Horde } from "@/app/data.types";
 import { Tab } from "../page";
 import Settings from "./Settings";
+import { useTentLogsContext } from "../_context/TentLogsContext";
+import { useStreamContext } from "../_context/StreamContext";
+import { useTentContext } from "../_context/TentProvider";
 
 interface UserPanelProps {
   tab: Tab;
@@ -34,29 +37,20 @@ const UserPanel: React.FC<UserPanelProps> = ({
   selectedHorde,
 }) => {
   const { username } = useAuth();
+  const { logsMap } = useTentLogsContext();
+  const { currentTentId } = useTentContext();
+  const { wsLogs, wsStatus, wsLatency, leaveTent } = useTentRTCContext();
   const {
     isSpeaking,
-    logsMap,
-    wsLogs,
-    leaveTent,
-    currentTentId,
-    wsStatus,
-    wsLatency,
     isMuted,
     isDeafened,
     toggleDeafen,
     toggleMute,
-  } = useTentRTCContext();
+  } = useStreamContext();
   const [shareScreen, setShareScreen] = useState(false);
-  const [showVadSettings, setShowVadSettings] = useState(false);
 
   const toggleShareScreen = useCallback(
     () => setShareScreen((pre) => !pre),
-    []
-  );
-
-  const toggleVadSettings = useCallback(
-    () => setShowVadSettings((pre) => !pre),
     []
   );
 
@@ -188,10 +182,7 @@ const UserPanel: React.FC<UserPanelProps> = ({
               openUI={(onOpen) => (
                 <button
                   onClick={onOpen}
-                  className={clsx(
-                    "action-container sm:hidden!",
-                    showVadSettings && "active"
-                  )}
+                  className={"action-container sm:hidden!"}
                 >
                   <LuSettings size={20} />
                 </button>
@@ -201,10 +192,7 @@ const UserPanel: React.FC<UserPanelProps> = ({
             </Drawer>
             <button
               onClick={() => openTab("Settings")}
-              className={clsx(
-                "action-container hidden! sm:block!",
-                showVadSettings && "active"
-              )}
+              className={"action-container hidden! sm:block!"}
             >
               <LuSettings size={20} />
             </button>

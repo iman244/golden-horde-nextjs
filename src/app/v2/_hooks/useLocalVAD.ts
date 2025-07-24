@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { calculateVolumeDb } from "../_utils/audioUtils";
+import { createLogger } from "../_utils/logger";
 
 // Base configuration constants
 const AUDIO_CONFIG = {
@@ -14,6 +16,8 @@ const DEBUG_LOGGING = process.env.NODE_ENV === "development";
 export interface VadThresholds {
   thresholdDb: number; // Simple: if audio dB > threshold → speaking
 }
+
+const { task: createTaskLogger } = createLogger("useLocalVAD");
 
 /**
  * Local VAD (Voice Activity Detection) for user's own microphone
@@ -47,29 +51,16 @@ export const useLocalVAD = (
 
   // Audio detection state
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
-  const [currentVolume, setCurrentVolume] = useState<number>(-120); // High-frequency volume for VAD logic
-  const [displayVolume, setDisplayVolume] = useState<number>(-120); // Throttled volume for UI display
-
-
+  const currentVolumeRef = useRef<number>(-100); // High-frequency volume for VAD logic
+  const [displayVolume, setDisplayVolume] = useState<number>(-100); // Throttled volume for UI display
 
   // Store current thresholds in ref for immediate updates without restarting audio context
   const currentThresholdsRef = useRef<VadThresholds>(thresholds);
 
-  // Helper function for debug logging
-  const debugLog = useCallback(
-    (message: string) => {
-      if (DEBUG_LOGGING) {
-        console.log(`[${username}] ${message}`);
-      }
-    },
-    [username]
-  );
-
   // Update thresholds ref when thresholds change (immediate effect)
   useEffect(() => {
     currentThresholdsRef.current = thresholds;
-    debugLog(`🎯 Threshold updated immediately: ${thresholds.thresholdDb}dB`);
-  }, [thresholds, debugLog]);
+  }, [thresholds]);
 
   // Create and configure audio context and analyser
   const setupAudioContext = useCallback((): {
@@ -82,44 +73,18 @@ export const useLocalVAD = (
     analyser.fftSize = AUDIO_CONFIG.fftSize;
     analyser.smoothingTimeConstant = AUDIO_CONFIG.smoothingTimeConstant;
 
-    debugLog(
-      `🎛️ AudioContext created: ${context.sampleRate}Hz, ${analyser.frequencyBinCount} bins`
-    );
-
     return { context, analyser };
-  }, [debugLog]);
+  }, []);
 
   // Connect audio stream to analyser
   const connectAudioStream = useCallback(
     (context: AudioContext, analyser: AnalyserNode, stream: MediaStream) => {
       const sourceNode = context.createMediaStreamSource(stream);
       sourceNode.connect(analyser);
-
-      debugLog("🔌 Audio stream connected to analyser");
-
       return sourceNode;
     },
-    [debugLog]
+    []
   );
-
-  // Calculate volume in dB from time domain data (proper VAD approach)
-  const calculateVolumeDb = (analyser: AnalyserNode): number => {
-    const bufferLength = analyser.fftSize;
-    const dataArray = new Float32Array(bufferLength);
-    
-    // Get raw audio amplitude data (time domain)
-    analyser.getFloatTimeDomainData(dataArray);
-    
-    // Calculate RMS (Root Mean Square) - proper way to average audio power
-    let sum = 0;
-    for (let i = 0; i < bufferLength; i++) {
-      sum += dataArray[i] * dataArray[i]; // Square each sample
-    }
-    const rms = Math.sqrt(sum / bufferLength); // Square root of mean
-    
-    // Convert RMS amplitude to dB using correct formula
-    return rms > 0 ? 20 * Math.log10(rms) : -100;
-  };
 
   // Simple dB threshold check - no more complex confidence scoring
   const checkAudioThreshold = (volume: number): boolean => {
@@ -151,10 +116,13 @@ export const useLocalVAD = (
 
   // Main audio detection loop
   const detectAudioActivity = useCallback(() => {
+    const task = createTaskLogger("detecting audio activity");
     const analyser = analyserRef.current;
     const currentThresholds = currentThresholdsRef.current;
-
+    task.step("checking if analyser is provided");
     if (!analyser) {
+      task.step("no analyser, breaking");
+      task.end();
       return;
     }
 
@@ -163,7 +131,7 @@ export const useLocalVAD = (
     const hasAudio = checkAudioThreshold(volumeDb);
 
     // Update high-frequency volume for VAD logic
-    setCurrentVolume(volumeDb);
+    currentVolumeRef.current = volumeDb;
 
     // Throttle display volume updates for UI (10 FPS = 100ms)
     const now = Date.now();
@@ -175,7 +143,7 @@ export const useLocalVAD = (
     // Debug logging every 60 frames (~1 second) to see actual dB values
     frameCountRef.current++;
     if (DEBUG_LOGGING && frameCountRef.current % 60 === 0) {
-      debugLog(
+      task.step(
         `📊 Simple dB Check: volume=${volumeDb.toFixed(1)}dB, threshold=${
           currentThresholds.thresholdDb
         }dB, speaking=${hasAudio}`
@@ -187,28 +155,18 @@ export const useLocalVAD = (
 
     // Schedule next detection
     animationFrameRef.current = requestAnimationFrame(detectAudioActivity);
-  }, [debugLog]);
-
-
+    task.end();
+  }, []);
 
   // Start audio detection
   const startAudioDetection = useCallback(() => {
-    const currentThresholds = currentThresholdsRef.current;
-    debugLog("🔄 Starting simple dB threshold detection...");
-    debugLog(
-      `📏 Simple Threshold: ${currentThresholds.thresholdDb}dB (audio > threshold = speaking)`
-    );
-    debugLog("💡 Watch for debug logs every second showing actual dB values");
-    debugLog(
-      "⚡ Threshold updates immediately via slider - no restart needed!"
-    );
-
     detectAudioActivity();
-  }, [detectAudioActivity, debugLog]);
+  }, [detectAudioActivity]);
 
   // Cleanup function
   const cleanup = useCallback(() => {
-    debugLog("🧹 Cleaning up audio analyzer");
+    const task = createTaskLogger("cleaning up audio analyzer");
+    task.step("🧹 Cleaning up audio analyzer");
 
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -232,14 +190,17 @@ export const useLocalVAD = (
     }
 
     analyserRef.current = null;
-  }, [debugLog]);
+    task.end();
+  }, []);
 
   useEffect(() => {
+    const task = createTaskLogger("no stream provided");
+    task.step("checking if stream is provided");
     if (!stream) {
-      debugLog("No stream provided");
+      task.step("No stream provided");
       return;
     }
-
+    task.step("stream is provided, setting up audio pipeline");
     try {
       // Setup audio pipeline
       const { context, analyser } = setupAudioContext();
@@ -249,16 +210,20 @@ export const useLocalVAD = (
       audioContextRef.current = context;
       analyserRef.current = analyser;
       sourceNodeRef.current = sourceNode;
-
+      task.step("audio pipeline set up, starting detection");
       // Start detection after short delay to let pipeline stabilize
       const startTimer = setTimeout(startAudioDetection, 1000);
-
+      task.end();
       return () => {
         clearTimeout(startTimer);
         cleanup();
       };
     } catch (error) {
-      debugLog(`Error setting up audio analyzer: ${error}`);
+      task.step(`Error setting up audio analyzer: ${error}`, {
+        status: "error",
+        error,
+      });
+      task.end();
       return cleanup;
     }
   }, [
@@ -266,10 +231,9 @@ export const useLocalVAD = (
     username,
     cleanup,
     connectAudioStream,
-    debugLog,
     setupAudioContext,
     startAudioDetection,
   ]); // Removed customThresholds to prevent restart - using ref for immediate updates
 
-  return { isSpeaking, currentVolume, displayVolume };
+  return { isSpeaking, currentVolume: currentVolumeRef.current, displayVolume };
 };

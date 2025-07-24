@@ -1,5 +1,5 @@
 import { LogEntry, LogLevel } from "@/app/types";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 
 export type LogsMap = Map<string, LogEntry[]>;
 export type addLogType =  (key: string, message: string, level?: LogLevel) => void
@@ -27,7 +27,7 @@ export function useKeyedLogs() {
 
   const clearLogs = useCallback(() => setLogsMap(new Map()), []);
 
-  const logsArray = Array.from(logsMap.values()).flat();
+  const logsArray = useMemo(() => Array.from(logsMap.values()).flat(), [logsMap]);
 
   return { logsMap, logsArray, addLog, removeLog, clearLogs };
 } 

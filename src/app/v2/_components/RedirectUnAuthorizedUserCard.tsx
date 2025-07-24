@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
 const RedirectUnAuthorizedUserCard = () => {
+  console.log("RedirectUnAuthorizedUserCard rendered");
   const router = useRouter();
   const [redirectCountdown, setRedirectCountdown] = useState(5);
 

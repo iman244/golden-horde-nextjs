@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { calculateVolumeDb } from "../_utils/audioUtils";
+import { createLogger } from "../_utils/logger";
 
 // Base configuration constants
 const AUDIO_CONFIG = {
@@ -10,8 +12,7 @@ const AUDIO_CONFIG = {
 // Simple detection threshold for remote users (fixed, no customization)
 const SIMPLE_DETECTION_THRESHOLD = -100; // dB - reasonable threshold for any audio activity
 
-// Optional debug logging
-const DEBUG_LOGGING = process.env.NODE_ENV === "development";
+const { task: createTaskLogger } = createLogger("useSimpleAudioDetection");
 
 /**
  * Simple audio detection for remote users
@@ -31,32 +32,6 @@ export const useSimpleAudioDetection = (
   const silenceTimerRef = useRef<number>(0);
 
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
-  const frequencyDataRef = useRef<Float32Array | null>(null);
-
-  const debugLog = useCallback(
-    (message: string) => {
-      if (DEBUG_LOGGING) {
-        console.log(`[${username}] ${message}`);
-      }
-    },
-    [username]
-  );
-
-  // Simple volume calculation (same as complex version)
-  const calculateVolumeDb = (frequencyData: Float32Array): number => {
-    let sum = 0;
-    let count = 0;
-
-    for (let i = 0; i < frequencyData.length; i++) {
-      const dbValue = frequencyData[i];
-      if (isFinite(dbValue)) {
-        sum += dbValue;
-        count++;
-      }
-    }
-
-    return count > 0 ? sum / count : -100;
-  };
 
   // Simple speaking detection logic
   const handleAudioDetection = useCallback((hasAudio: boolean) => {
@@ -79,14 +54,12 @@ export const useSimpleAudioDetection = (
   // Simple detection loop
   const detectAudioActivity = useCallback(() => {
     const analyser = analyserRef.current;
-    const frequencyData = frequencyDataRef.current;
 
-    if (!analyser || !frequencyData) {
+    if (!analyser) {
       return;
     }
 
-    analyser.getFloatFrequencyData(frequencyData);
-    const volumeDb = calculateVolumeDb(frequencyData);
+    const volumeDb = calculateVolumeDb(analyser);
     const hasAudio = volumeDb > SIMPLE_DETECTION_THRESHOLD;
 
     handleAudioDetection(hasAudio);
@@ -94,8 +67,10 @@ export const useSimpleAudioDetection = (
   }, [handleAudioDetection]);
 
   useEffect(() => {
+    const task = createTaskLogger("calculating audio activity");
+    task.step("checking if stream is provided");
     if (!stream) {
-      debugLog("No stream provided");
+      task.step("no stream provided");
       return;
     }
 
@@ -112,17 +87,16 @@ export const useSimpleAudioDetection = (
       audioContextRef.current = context;
       analyserRef.current = analyser;
       sourceNodeRef.current = sourceNode;
-      frequencyDataRef.current = new Float32Array(analyser.frequencyBinCount);
 
-      debugLog(
-        `🔄 Simple detection started (threshold: ${SIMPLE_DETECTION_THRESHOLD}dB)`
+      task.step(
+        `Simple detection started (threshold: ${SIMPLE_DETECTION_THRESHOLD}dB)`
       );
 
       // Start detection after short delay
       const startTimer = setTimeout(() => {
         detectAudioActivity();
       }, 1000);
-
+      task.end();
       return () => {
         clearTimeout(startTimer);
 
@@ -138,13 +112,12 @@ export const useSimpleAudioDetection = (
         if (audioContextRef.current) {
           audioContextRef.current.close();
         }
-
-        debugLog("🧹 Simple detection cleaned up");
       };
     } catch (error) {
-      debugLog(`Error in simple detection: ${error}`);
+      task.step(`Error in simple detection: ${error}`);
+      task.end();
     }
-  }, [stream, username, debugLog, detectAudioActivity]);
+  }, [stream, username, detectAudioActivity]);
 
   return isSpeaking;
 };

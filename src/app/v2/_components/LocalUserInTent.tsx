@@ -1,9 +1,9 @@
 import React, { FC } from "react";
-import { useTentRTCContext } from "../_context/TentRTCContext";
 import clsx from "clsx";
 import { useAuth } from "@/app/context/AuthContext";
 import { FaMicrophoneSlash } from "react-icons/fa";
 import { LuHeadphoneOff } from "react-icons/lu";
+import { useStreamContext } from "../_context/StreamContext";
 
 const LocalUserInTent: FC = () => {
   const { username } = useAuth();
@@ -11,7 +11,7 @@ const LocalUserInTent: FC = () => {
     isSpeaking,
     isMuted,
     isDeafened,
-  } = useTentRTCContext();
+  } = useStreamContext();
 
   return (
     <div className="group flex items-center justify-between transition-colors hover:bg-gray-700/50 rounded-md py-1 px-2">

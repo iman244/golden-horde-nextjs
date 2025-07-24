@@ -26,7 +26,8 @@ type MessageWithTypeAndTs = { type: string; ts: number };
 export function useSignaling<T extends MessageWithType>(
   options: UseSignalingOptions
 ) {
-  const { url, channelId, getUrl, onClose, autoReconnect, reconnectDelay } = options;
+  const { url, channelId, getUrl, onClose, autoReconnect, reconnectDelay } =
+    options;
   const wsRef = useRef<WebSocket | null>(null);
   //   const [wsLogs, setWsLogs] = useState<LogEntry[]>([]);
   const { logs, addLog, clearLogs } = useLogs();
@@ -35,7 +36,11 @@ export function useSignaling<T extends MessageWithType>(
   const authRejectedCallbacks = useRef<(() => void)[]>([]);
   const [wsReadyState, setWsReadyState] = useState<number | null>(null);
   const [connectionKey, setConnectionKey] = useState(0);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const lastPingTimestamp = useRef<number | null>(null);
+  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Send a signaling message
   const sendSignal = useCallback(
@@ -77,19 +82,53 @@ export function useSignaling<T extends MessageWithType>(
     };
   }, []);
 
-  function isMessageWithTypeAndTs(msg: unknown): msg is MessageWithTypeAndTs {
-    return (
-      typeof msg === "object" &&
-      msg !== null &&
-      "type" in msg &&
-      "ts" in msg &&
-      typeof (msg as MessageWithTypeAndTs).ts === "number"
-    );
-  }
+  const isMessageWithTypeAndTs = useCallback(
+    (msg: unknown): msg is MessageWithTypeAndTs => {
+      return (
+        typeof msg === "object" &&
+        msg !== null &&
+        "type" in msg &&
+        "ts" in msg &&
+        typeof (msg as MessageWithTypeAndTs).ts === "number"
+      );
+    },
+    []
+  );
 
-  function isMessageWithType(msg: unknown): msg is MessageWithType {
-    return typeof msg === "object" && msg !== null && "type" in msg;
-  }
+  const isMessageWithType = useCallback(
+    (msg: unknown): msg is MessageWithType => {
+      return typeof msg === "object" && msg !== null && "type" in msg;
+    },
+    []
+  );
+
+  // Ping function that doesn't depend on any state or props
+  const ping = useCallback(() => {
+    lastPingTimestamp.current = Date.now();
+    wsRef.current?.send(
+      JSON.stringify({ type: "ping", ts: lastPingTimestamp.current })
+    );
+    // No ping log
+  }, []);
+
+  // Start ping interval
+  const startPingInterval = useCallback(() => {
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+    }
+    pingIntervalRef.current = setInterval(() => {
+      ping();
+    }, 5000);
+    ping(); // Send initial ping
+  }, [ping]);
+
+  // Stop ping interval
+  const stopPingInterval = useCallback(() => {
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     // Close existing connection if any
@@ -115,14 +154,11 @@ export function useSignaling<T extends MessageWithType>(
       setWsReadyState(null);
       return;
     }
-    clearLogs()
+    clearLogs();
     const ws = new WebSocket(wsUrl);
     addLog("WebSocket: Connecting to signaling server");
     wsRef.current = ws;
     setWsReadyState(ws.readyState);
-
-    let pingInterval: ReturnType<typeof setInterval> | null = null;
-    let lastPingTimestamp: number | null = null;
 
     ws.onopen = () => {
       setWsReadyState(ws.readyState);
@@ -131,15 +167,8 @@ export function useSignaling<T extends MessageWithType>(
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
       }
-      function ping() {
-        lastPingTimestamp = Date.now();
-        ws.send(JSON.stringify({ type: "ping", ts: lastPingTimestamp }));
-        // No ping log
-      }
-      pingInterval = setInterval(() => {
-        ping();
-      }, 5000);
-      ping();
+
+      startPingInterval();
     };
 
     ws.onclose = (event) => {
@@ -155,7 +184,7 @@ export function useSignaling<T extends MessageWithType>(
         );
       }
       authRejectedCallbacks.current.forEach((cb) => cb());
-      if (pingInterval) clearInterval(pingInterval);
+      stopPingInterval();
       clearLogs();
       if (typeof onClose === "function") {
         onClose(event);
@@ -209,7 +238,7 @@ export function useSignaling<T extends MessageWithType>(
         setWsReadyState(wsRef.current.readyState); // Set to CLOSING (2)
         wsRef.current = null;
       }
-      if (pingInterval) clearInterval(pingInterval);
+      stopPingInterval();
       setWsReadyState(null);
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
@@ -217,8 +246,22 @@ export function useSignaling<T extends MessageWithType>(
       }
       // Do not clear all signal callbacks globally here; each component should unsubscribe its own callback.
     };
-  }, [url, channelId, addLog, getUrl, clearLogs, onClose, autoReconnect, reconnectDelay, connectionKey]);
-  
+  }, [
+    url,
+    channelId,
+    addLog,
+    getUrl,
+    clearLogs,
+    onClose,
+    autoReconnect,
+    reconnectDelay,
+    connectionKey,
+    startPingInterval,
+    stopPingInterval,
+    isMessageWithType,
+    isMessageWithTypeAndTs,
+  ]);
+
   // Function to close the WebSocket and update ready state
   const closeWebSocket = useCallback(() => {
     if (wsRef.current) {
@@ -226,7 +269,6 @@ export function useSignaling<T extends MessageWithType>(
       wsRef.current.close();
       setWsReadyState(wsRef.current.readyState);
       wsRef.current = null;
-
     }
   }, [addLog]);
 

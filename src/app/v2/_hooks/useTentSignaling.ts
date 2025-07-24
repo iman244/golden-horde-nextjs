@@ -1,6 +1,6 @@
 import { useAuth } from "@/app/context/AuthContext";
 import { useSignaling } from "@/app/hooks/useSignaling";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 // import { getWebSocketStatus, WebSocketStatusType } from "../_utils";
 import { TentSignalingMessages } from "../_types";
 import { getWebSocketStatus } from "../_utils";
@@ -32,7 +32,7 @@ export const useTentSignaling = (currentTentId: string | number | null) => {
     reconnectDelay: 2000,
   });
 
-  const wsStatus = getWebSocketStatus(wsReadyState);
+  const wsStatus = useMemo(() => getWebSocketStatus(wsReadyState), [wsReadyState]);
 
   return {
     wsLatency,

@@ -5,6 +5,9 @@ import Loading from "../loading";
 import RedirectUnAuthorizedUserCard from "./_components/RedirectUnAuthorizedUserCard";
 import TentsLiveUsersProvider from "./_context/TentsLiveUsersContext";
 import TentRTCProvider from "./_context/TentRTCContext";
+import TentLogsProvider from "./_context/TentLogsContext";
+import StreamProvider from "./_context/StreamContext";
+import TentProvider from "./_context/TentProvider";
 
 const V2Layout: FC<{ children: ReactNode }> = ({ children }) => {
   const { authStatus } = useAuth();
@@ -14,7 +17,13 @@ const V2Layout: FC<{ children: ReactNode }> = ({ children }) => {
 
   return (
     <TentsLiveUsersProvider>
-      <TentRTCProvider>{children}</TentRTCProvider>
+      <TentProvider>
+        <TentLogsProvider>
+          <StreamProvider>
+            <TentRTCProvider>{children}</TentRTCProvider>
+          </StreamProvider>
+        </TentLogsProvider>
+      </TentProvider>
     </TentsLiveUsersProvider>
   );
 };

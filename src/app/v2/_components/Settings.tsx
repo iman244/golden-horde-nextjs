@@ -1,6 +1,15 @@
-import React, { useEffect, useState, useRef, useMemo, memo, useCallback } from "react";
-import { useTentRTCContext } from "../_context/TentRTCContext";
+import React, {
+  useEffect,
+  useState,
+  useRef,
+  useMemo,
+  memo,
+  useCallback,
+} from "react";
 import clsx from "clsx";
+import { useStreamContext } from "../_context/StreamContext";
+import useStream from "../_hooks/useStream";
+import { createLogger } from "../_utils/logger";
 
 // Pure helper function - moved outside component for performance
 const getSensitivityLabel = (threshold: number): string => {
@@ -9,6 +18,8 @@ const getSensitivityLabel = (threshold: number): string => {
   return "Very Sensitive";
 };
 
+const { task: createTaskLogger } = createLogger("Settings");
+
 /**
  * Settings component for voice activity detection (VAD) configuration
  * Provides real-time volume monitoring, threshold adjustment, and audio preview functionality
@@ -16,18 +27,16 @@ const getSensitivityLabel = (threshold: number): string => {
 const Settings = () => {
   // Context and state
   const {
-    playLocalUserAudioPreview,
-    stopLocalUserAudioPreview,
     vadEnabled,
     vadThreshold,
     setVadThreshold,
     toggleVad,
-    displayVolume,
     isDeafened,
     setIsDeafened,
     isMuted,
     setIsMuted,
-  } = useTentRTCContext();
+  } = useStreamContext();
+
 
   // Local state and refs
   const [playUserAudio, setPlayUserAudio] = useState<boolean>(false);
@@ -35,107 +44,184 @@ const Settings = () => {
   const wasMutedBefore = useRef<boolean | null>(null);
   const wasDeafenedBefore = useRef<boolean | null>(null);
 
+  const { isSpeaking, stream, closeStream, displayVolume } = useStream({
+    voiceState: {
+      isDeafened: false,
+      isMuted: false,
+      vadEnabled,
+      vadThreshold,
+    },
+    startStream: playUserAudio,
+  });
+
+  
   // Effect 1: Manage mute/deafen state during audio preview
   useEffect(() => {
+    const task = createTaskLogger(
+      "handling mute/deafen side effect of preview audio stream"
+    );
     // Store original states only once when starting preview
-    if (wasMutedBefore.current === null) {
-      wasMutedBefore.current = isMuted;
-      wasDeafenedBefore.current = isDeafened;
-    }
-
     if (playUserAudio) {
+      task.step("user audio preview is playing");
+      if (wasMutedBefore.current === null) {
+        task.step(
+          `storing the current mute/deafen state in the ref: ${isMuted} ${isDeafened}`,
+          {
+            status: "ok",
+          }
+        );
+        wasMutedBefore.current = isMuted;
+        wasDeafenedBefore.current = isDeafened;
+      } else {
+        task.step(
+          `the current mute/deafen state is already stored in the ref: ${wasMutedBefore.current} ${wasDeafenedBefore.current}`,
+          {
+            status: "ok",
+          }
+        );
+      }
+      task.step(
+        "user audio preview is playing, muting and deafening the user",
+        {
+          status: "ok",
+        }
+      );
       // Mute and deafen to prevent feedback during preview
       setIsDeafened(true);
       setIsMuted(true);
     } else if (playUserAudio === false) {
+      task.step("user audio preview is not playing");
       // Restore original states when stopping preview
-      if (wasMutedBefore.current !== null) {
+      if (
+        wasMutedBefore.current !== null &&
+        wasMutedBefore.current !== isMuted
+      ) {
+        task.step("restoring the original mute state", {
+          status: "ok",
+        });
         setIsMuted(wasMutedBefore.current);
       }
-      if (wasDeafenedBefore.current !== null) {
+      if (
+        wasDeafenedBefore.current !== null &&
+        wasDeafenedBefore.current !== isDeafened
+      ) {
+        task.step("restoring the original deafen state", {
+          status: "ok",
+        });
         setIsDeafened(wasDeafenedBefore.current);
       }
 
       // Reset refs for next preview session
+      task.step("resetting the refs for next preview session", {
+        status: "ok",
+      });
       wasMutedBefore.current = null;
       wasDeafenedBefore.current = null;
     }
+    task.end();
   }, [playUserAudio, isMuted, isDeafened, setIsDeafened, setIsMuted]);
 
   // Effect 2: Manage audio stream and playback
   useEffect(() => {
+    const task = createTaskLogger(
+      "handling audio stream side effect of preview audio stream"
+    );
+    if (!stream) {
+      task.step("no stream, skipping");
+      task.end();
+      return;
+    }
+    task.step("stream is ready, starting audio preview");
     const audioElement = audioRef.current;
 
     const startAudioPreview = async () => {
       try {
-        const stream = await playLocalUserAudioPreview();
-        
         if (audioElement && stream && audioElement.srcObject !== stream) {
+          task.step("setting the stream preview to the audio element");
           audioElement.srcObject = stream;
           await audioElement.play();
         }
       } catch (error) {
+        task.step("error starting audio preview", { status: "error", error });
         console.error("Error starting audio preview:", error);
       }
     };
 
     const stopAudioPreview = () => {
-      stopLocalUserAudioPreview();
+      task.step("stopping audio preview");
+      closeStream();
       if (audioElement) {
+        task.step("stopping audio preview, pausing the audio element");
         audioElement.srcObject = null;
         audioElement.pause();
       }
     };
 
     if (playUserAudio) {
+      task.step("user audio preview is playing, starting audio preview");
       startAudioPreview();
     } else if (playUserAudio === false) {
+      task.step("user audio preview is not playing, stopping audio preview");
       stopAudioPreview();
     }
 
+    task.end();
+
     return stopAudioPreview;
-  }, [playUserAudio, playLocalUserAudioPreview, stopLocalUserAudioPreview]);
+  }, [stream, playUserAudio, closeStream]);
 
   // Volume calculations (throttled to reduce re-renders)
-  const roundedVolume = useMemo(() => Math.round(displayVolume), [displayVolume]);
+  const roundedVolume = useMemo(
+    () => Math.round(displayVolume),
+    [displayVolume]
+  );
   const volumePercentage = useMemo(() => {
     return Math.max(0, Math.min(100, ((roundedVolume + 100) / 100) * 100));
   }, [roundedVolume]);
 
   // Computed values
-  const isTransmitting = roundedVolume > vadThreshold;
+  //   const isTransmitting = useMemo(
+  //     () => (vadEnabled ? roundedVolume > vadThreshold : true),
+  //     [vadEnabled, roundedVolume, vadThreshold]
+  //   );
 
   // JSX Components
-  const VadToggleSection = useCallback(() => (
-    <div className="flex justify-between items-center">
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-400">Input Sensitivity</span>
-        <button
-          onClick={toggleVad}
-          className={clsx(
-            "text-xs px-2 py-1 rounded transition-colors",
-            vadEnabled
-              ? "bg-green-600 text-white"
-              : "bg-gray-600 text-gray-300"
-          )}
-        >
-          {vadEnabled ? "AUTO" : "ALWAYS"}
-        </button>
+  const VadToggleSection = useCallback(
+    () => (
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-400">Input Sensitivity</span>
+          <button
+            onClick={toggleVad}
+            className={clsx(
+              "text-xs px-2 py-1 rounded transition-colors",
+              vadEnabled
+                ? "bg-green-600 text-white"
+                : "bg-gray-600 text-gray-300"
+            )}
+          >
+            {vadEnabled ? "AUTO" : "ALWAYS"}
+          </button>
+        </div>
       </div>
-    </div>
-  ), [toggleVad, vadEnabled]);
+    ),
+    [toggleVad, vadEnabled]
+  );
 
-  const AudioPreviewSection = useCallback(() => (
-    <div className="flex justify-between items-center">
-      <button
-        className="text-xs text-gray-400"
-        onClick={() => setPlayUserAudio((prev) => !prev)}
-      >
-        {playUserAudio ? "Stop User Audio" : "Play User Audio"}
-      </button>
-      {playUserAudio && <audio ref={audioRef} autoPlay />}
-    </div>
-  ), [playUserAudio, setPlayUserAudio]);
+  const AudioPreviewSection = useCallback(
+    () => (
+      <div className="flex justify-between items-center">
+        <button
+          className="text-xs text-gray-400"
+          onClick={() => setPlayUserAudio((prev) => !prev)}
+        >
+          {playUserAudio ? "Stop User Audio" : "Play User Audio"}
+        </button>
+        {playUserAudio && <audio ref={audioRef} autoPlay />}
+      </div>
+    ),
+    [playUserAudio, setPlayUserAudio]
+  );
 
   return (
     <div className="flex flex-col gap-2 flex-1 bg-[#181a20]">
@@ -154,16 +240,16 @@ const Settings = () => {
             <span className="text-sm text-gray-400">
               Current Volume: {roundedVolume}dB
             </span>
-                          <span
-                className={clsx(
-                  "text-xs px-2 py-1 rounded",
-                  isTransmitting
-                    ? "bg-green-600 text-white"
-                    : "bg-gray-600 text-gray-300"
-                )}
-              >
-                {isTransmitting ? "TRANSMITTING" : "SILENT"}
-              </span>
+            <span
+              className={clsx(
+                "text-xs px-2 py-1 rounded",
+                isSpeaking
+                  ? "bg-green-600 text-white"
+                  : "bg-gray-600 text-gray-300"
+              )}
+            >
+              {isSpeaking ? "TRANSMITTING" : "SILENT"}
+            </span>
           </div>
           <div className="relative w-full">
             {/* Volume indicator background */}
