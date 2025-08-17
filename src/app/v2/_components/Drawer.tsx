@@ -31,9 +31,7 @@ const Drawer: FC<DrawerProps> = ({ children, openUI }) => {
       <div
         className={clsx(
           "w-full h-[100dvh] fixed left-0 z-50 transition-all",
-          isOpen
-            ? "top-0"
-            : "top-[100dvh]",
+          isOpen ? "top-0" : "top-[100dvh]"
         )}
         // className={clsx(
         //   "v2-main-panel flex flex-col sm:static sm:flex-1 z-50",
@@ -66,7 +64,9 @@ const Drawer: FC<DrawerProps> = ({ children, openUI }) => {
             <polyline points="6 9 12 15 18 9"></polyline>
           </svg>
         </button>
-        <div className="flex-1 w-full h-full flex flex-col overflow-y-auto">{children}</div>
+        <div className="flex-1 w-full h-full flex flex-col overflow-y-auto bg-[#181a20]">
+          {children}
+        </div>
       </div>
     </>
   );

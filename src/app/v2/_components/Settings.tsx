@@ -248,7 +248,7 @@ const Settings = () => {
   );
 
   return (
-    <div className="v2-card">
+    <div className="p-4">
       <h3 className="v2-card-title">Voice Settings</h3>
 
       <VadToggleSection />

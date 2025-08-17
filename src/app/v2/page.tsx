@@ -104,49 +104,6 @@ const V2Page = () => {
       <Audios />
       <MediaErrorModal />
 
-      {/* Drawer Panel: Only show when open and on mobile, or always on desktop */}
-      {/* {currentTent && (
-        <TentDrawerPanel tent={currentTent} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
-      )} */}
-      {/* <div
-        className={clsx(
-          "v2-main-panel__drawer-toggle-bar block sm:hidden p-2 items-center gap-4 h-[70px] transition-all",
-          currentTentId ? "bottom-[0]!" : "bottom-[-70px]!"
-        )}
-      >
-        <Drawer
-          openUI={(onOpen) => (
-            <button
-              className="text-yellow-400 p-3 rounded-full border border-yellow-200"
-              aria-label="Open Drawer"
-              onClick={onOpen}
-            >
-              <FaTools size={20} />
-            </button>
-          )}
-        >
-          <LogsContent
-            logs={{
-              ...Object.fromEntries(Array.from(logsMap.entries())),
-              ws: wsLogs,
-            }}
-          />
-        </Drawer>
-        <Drawer
-          openUI={(onOpen) => (
-            <button
-              className="text-yellow-400 p-3 rounded-full border border-yellow-200"
-              aria-label="Open Drawer"
-              onClick={onOpen}
-            >
-              <BiSolidMessageDetail size={20} />
-            </button>
-          )}
-        >
-          <RTCDataChannelPanel />
-        </Drawer>
-      </div> */}
-
       <UserPanel 
         tab={tab} 
         openTab={openTab}
