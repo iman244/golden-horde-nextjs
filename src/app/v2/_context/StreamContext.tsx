@@ -15,9 +15,13 @@ import { MediaErrorType } from "../_hooks/useUserMediaStream";
 import { useTentContext } from "./TentProvider";
 import { createLogger } from "../_utils/logger";
 import { useVoiceChatState } from "../_hooks/useVoiceChatState";
+import { useShareScreen } from "../_hooks/useShareScreen";
 
 export interface StreamContextType {
-  stream: MediaStream | null;
+  audioStream: MediaStream | null;
+  displayStream: MediaStream | null;
+  isAudioStreamReady: boolean;
+  isDisplayMediaStreamReady: boolean;
   isSpeaking: boolean;
   addTrack: (target_user: string, pc: RTCPeerConnection) => Promise<void>;
   mediaError: MediaErrorType | null;
@@ -32,6 +36,8 @@ export interface StreamContextType {
   toggleVad: () => void;
   vadThreshold: number;
   setVadThreshold: (threshold: number) => void;
+  isSharingScreen: boolean;
+  toggleShareScreen: () => void;
 }
 
 const StreamContext = createContext<StreamContextType | undefined>(undefined);
@@ -55,16 +61,29 @@ const StreamProvider: FC<{ children: ReactNode }> = ({ children }) => {
     setVadThreshold,
   } = useVoiceChatState();
 
-  const { stream, isSpeaking, mediaError, clearMediaError, closeStream } =
-    useStream({
-      voiceState: {
-        isDeafened,
-        isMuted,
-        vadEnabled,
-        vadThreshold,
-      },
-      startStream: currentTentId !== null,
-    });
+  const {
+    isSharingScreen,
+    toggleShareScreen,
+    displayStream,
+    isDisplayMediaStreamReady,
+  } = useShareScreen();
+
+  const {
+    stream: audioStream,
+    isSpeaking,
+    mediaError,
+    clearMediaError,
+    closeStream,
+    isAudioStreamReady,
+  } = useStream({
+    voiceState: {
+      isDeafened,
+      isMuted,
+      vadEnabled,
+      vadThreshold,
+    },
+    startStream: currentTentId !== null,
+  });
 
   const hasTrack = useCallback(
     (senders: RTCRtpSender[], kind: "audio" | "video") => {
@@ -78,7 +97,7 @@ const StreamProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const addTrack = useCallback(
     async (target_user: string, pc: RTCPeerConnection) => {
       const task = createTaskLogger(`Adding track for ${target_user}`);
-      if (stream) {
+      if (audioStream) {
         task.step("Processed stream is ready");
       } else {
         task.step("Failed task: adding track, failed to get processed stream", {
@@ -96,8 +115,8 @@ const StreamProvider: FC<{ children: ReactNode }> = ({ children }) => {
         task.step("No existing audio track found, adding new track", {
           status: "info",
         });
-        stream.getTracks().forEach((track) => {
-          pc.addTrack(track, stream);
+        audioStream.getTracks().forEach((track) => {
+          pc.addTrack(track, audioStream);
         });
         task.step(`New track added to PeerConnection for ${target_user}`, {
           status: "ok",
@@ -113,13 +132,16 @@ const StreamProvider: FC<{ children: ReactNode }> = ({ children }) => {
       }
       task.end();
     },
-    [addLog, stream, hasTrack]
+    [addLog, audioStream, hasTrack]
   );
 
   // Memoize the context value to prevent unnecessary re-renders
   const contextValue = useMemo(
     () => ({
-      stream,
+      audioStream,
+      displayStream,
+      isAudioStreamReady,
+      isDisplayMediaStreamReady,
       isSpeaking,
       addTrack,
       mediaError,
@@ -135,9 +157,14 @@ const StreamProvider: FC<{ children: ReactNode }> = ({ children }) => {
       vadThreshold,
       setVadThreshold,
       closeStream,
+      isSharingScreen,
+      toggleShareScreen,
     }),
     [
-      stream,
+      audioStream,
+      displayStream,
+      isAudioStreamReady,
+      isDisplayMediaStreamReady,
       isSpeaking,
       addTrack,
       mediaError,
@@ -153,6 +180,8 @@ const StreamProvider: FC<{ children: ReactNode }> = ({ children }) => {
       vadThreshold,
       setVadThreshold,
       closeStream,
+      isSharingScreen,
+      toggleShareScreen,
     ]
   );
 

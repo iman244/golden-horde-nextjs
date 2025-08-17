@@ -11,7 +11,15 @@ type useStreamProps = {
 };
 
 const useStream = ({ voiceState, startStream }: useStreamProps) => {
-  const { processedStream, mediaError, clearMediaError, closeStream, currentVolume, displayVolume } = useProcessedStream({
+  const {
+    isProcessedStreamReady,
+    processedStream,
+    mediaError,
+    clearMediaError,
+    closeStream,
+    currentVolume,
+    displayVolume,
+  } = useProcessedStream({
     voiceState,
     username: "LOCAL_USER",
     startStream,
@@ -19,44 +27,9 @@ const useStream = ({ voiceState, startStream }: useStreamProps) => {
 
   const uiIsSpeaking = useSimpleAudioDetection(processedStream, "LOCAL_USER");
 
-  //   const { playLocalUserAudioPreview, stopLocalUserAudioPreview } =
-  //     useAudioPreview({
-  //       mainStream: stream,
-  //       getStream,
-  //       vadEnabled,
-  //       vadIsSpeaking,
-  //     });
-
-  // Memoize callback functions to prevent unnecessary re-renders
-
-  //   const addTrack = useCallback(
-  //     async (target_user: string, pc: RTCPeerConnection) => {},
-  //     []
-  //   );
-  // const currentVolume = useMemo(() => 0, []);
-  // const displayVolume = useMemo(() => 0, []);
-  //   const clearMediaError = useCallback(() => {}, []);
-
-  // Memoize the return object to prevent unnecessary re-renders
-  //   useChangeStreamStates({
-  //         stream: processedStream,
-  //     addTrack,
-  //     mediaError,
-  //     clearMediaError,
-  //     isMuted,
-  //     toggleMute,
-  //     setIsMuted,
-  //     isDeafened,
-  //     toggleDeafen,
-  //     setIsDeafened,
-  //     vadEnabled,
-  //     toggleVad,
-  //     vadThreshold,
-  //     setVadThreshold,
-  //     uiIsSpeaking,
-  //   });
   const result = useMemo(
     () => ({
+      isAudioStreamReady: isProcessedStreamReady,
       stream: processedStream,
       mediaError,
       clearMediaError,
@@ -65,7 +38,16 @@ const useStream = ({ voiceState, startStream }: useStreamProps) => {
       currentVolume,
       displayVolume,
     }),
-    [processedStream, mediaError, clearMediaError, uiIsSpeaking, closeStream, currentVolume, displayVolume]
+    [
+      isProcessedStreamReady,
+      processedStream,
+      mediaError,
+      clearMediaError,
+      uiIsSpeaking,
+      closeStream,
+      currentVolume,
+      displayVolume,
+    ]
   );
 
   return result;

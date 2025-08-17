@@ -9,7 +9,8 @@ const LOG_CONFIG: { [key: string]: boolean } = {
   useStreamTrackController: false,
   useAudioPreview: false,
   TentRTCProvider: false,
-  Settings: true,
+  Settings: false,
+  useProcessedStream: true,
 };
 
 type LogStatus = "ok" | "error" | "info";

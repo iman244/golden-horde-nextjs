@@ -57,10 +57,9 @@ interface TentRTCContextType {
 
 const TentRTCContext = createContext<TentRTCContextType | undefined>(undefined);
 
-const { log } = createLogger("TentRTCProvider");
+const { task } = createLogger("TentRTCProvider");
 
 const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
-  log("TentRTCProvider initialized");
   const { username } = useAuth();
   const { clearLogs, addLog, removeLog } = useTentLogsContext();
   const { currentTentId, setCurrentTentId } = useTentContext();
@@ -106,8 +105,6 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
     [addLog]
   );
 
-  const { addTrack, isMuted, isDeafened } = useStreamContext();
-
   const {
     dcMessages,
     getOnMessageHandler,
@@ -131,6 +128,139 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   const { onSignal, sendSignal, wsLatency, wsStatus, closeWebSocket, wsLogs } =
     useTentSignaling(currentTentId);
+
+  const {
+    // addTrack,
+    isMuted,
+    isDeafened,
+    isDisplayMediaStreamReady,
+    isAudioStreamReady,
+    audioStream,
+  } = useStreamContext();
+
+  const isAudioTracksWorking = useCallback((pc: RTCPeerConnection) => {
+    // const { step, end } = task("checking if audio tracks are working");
+    if (!(pc instanceof RTCPeerConnection)){
+        // step("pc is not a valid RTCPeerConnection", { status: "error" });
+        // end();
+        return true;
+    }; // Not a valid pc
+    
+    // step("getting senders");
+    const senders = pc.getSenders();
+    // step(`senders: ${senders.map(s => s.track?.kind).filter(Boolean).join(", ")}`);
+
+    // step("checking if any audio track is live");
+    const res = senders.some(sender => sender.track?.kind === "audio" && sender.track.readyState === "live");
+    // step(`res: ${res}`);
+    // end();
+    return res
+  }, []);
+
+  const addAudioTrack = useCallback(
+    (target_user: string) => {
+      const { step, end } = task(`adding audio tracks to ${target_user}`);
+      const pc = connectionsRef.current.get(target_user)?.pc;
+      if (!pc) {
+        step(`peer connection is not available for ${target_user}`, {
+          status: "error",
+        });
+        end();
+        return;
+      }
+      if (!audioStream) {
+        step(`audio stream is not available for ${target_user}`, {
+          status: "error",
+        });
+        end();
+        return;
+      }
+      // --- LOGGING: Check current senders and tracks before adding ---
+      const currentSenders = pc.getSenders();
+      const currentTrackKinds = currentSenders.map(s => s.track?.kind).filter(Boolean);
+      step(`Current senders before add: [${currentTrackKinds.join(", ")}]`);
+      // --- LOGGING: Check for duplicate tracks ---
+      const audioTrackIds = audioStream.getAudioTracks().map(t => t.id);
+      const senderAudioTrackIds = currentSenders.filter(s => s.track?.kind === "audio").map(s => s.track?.id);
+      const duplicateAudioTracks = audioTrackIds.filter(id => senderAudioTrackIds.includes(id));
+      if (duplicateAudioTracks.length > 0) {
+        step(`Duplicate audio tracks detected: [${duplicateAudioTracks.join(", ")}]`, { status: "error" });
+      }
+      // --- LOGGING: Log the order of tracks being added ---
+      audioStream.getTracks().forEach((track, idx) => {
+        step(`Adding track #${idx}: kind=${track.kind}, id=${track.id}`);
+        pc.addTrack(track, audioStream);
+      });
+      // --- LOGGING: Check senders after adding ---
+      const afterSenders = pc.getSenders();
+      const afterTrackKinds = afterSenders.map(s => s.track?.kind).filter(Boolean);
+      step(`Current senders after add: [${afterTrackKinds.join(", ")}]`);
+      step(`audio tracks added to ${target_user}`, { status: "ok" });
+      end();
+    },
+    [audioStream]
+  );
+
+  useEffect(() => {
+    const { step, end } = task("side effect of audio stream is ready");
+    if (isAudioStreamReady) {
+      step("audio stream is ready signaled");
+      if (audioStream) {
+        console.log("connectionsRef.current", [...connectionsRef.current.entries()].length);
+        connectionsRef.current.entries().forEach(([target_user, { pc }]) => {
+          const isATW = isAudioTracksWorking(pc);
+          step(`isAudioTracksWorking(${target_user}): ${isATW}`);
+          if (!isATW) {
+            step(`adding audio tracks to ${target_user}`);
+            addAudioTrack(target_user);
+            step(`audio tracks added to ${target_user}`, { status: "ok" });
+          } else {
+            step(`audio tracks are already added to ${target_user}`);
+          }
+        });
+        if (connectionsRef.current.size > 0) {
+          step("updating connections");
+          setConnections(connectionsRef.current);
+        } else {
+          step("no peer connections found");
+        }
+      } else {
+        step(
+          "audio stream is not available after isAudioStreamReady signal, this bug must not happen",
+          { status: "error" }
+        );
+      }
+    } else {
+      step("audio stream is not ready");
+    }
+    end();
+  }, [
+    isAudioStreamReady,
+    audioStream,
+    addAudioTrack,
+    isAudioTracksWorking,
+    connections,
+  ]);
+
+  useEffect(() => {
+    const { step, end } = task(
+      "handling broadcast of share screen state to tent participants"
+    );
+    if (isDisplayMediaStreamReady) {
+      step("broadcasting share screen started");
+      sendSignal({
+        type: "share_screen_started",
+        username: username!,
+      });
+    } else {
+      step("broadcasting share screen stopped");
+      sendSignal({
+        type: "share_screen_stopped",
+        username: username!,
+      });
+    }
+    end();
+  }, [isDisplayMediaStreamReady, sendSignal, username]);
 
   // Broadcast audio state changes to all peers
   useEffect(() => {
@@ -163,11 +293,10 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
     clearMessages();
     closeWebSocket();
     setCurrentTentId(null);
-  }, [currentTentId, closeWebSocket, clearMessages]);
+  }, [currentTentId, closeWebSocket, clearMessages, setCurrentTentId]);
 
   const onconnectionstatechange = useCallback(
     (user: string, pc: RTCPeerConnection) => async () => {
-      //   console.log("onconnectionstatechange ev", ev);
       const { connectionState } = pc;
       addLog(
         user,
@@ -292,6 +421,43 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
     [updateUserData, addLog]
   );
 
+  // Refactored onnegotiationneeded to return an async handler closure
+  const onnegotiationneeded = useCallback(
+    (target_user: string, pc: RTCPeerConnection) => {
+      // return async (ev: Event) => {
+      return async () => {
+        const { step, end } = task(`onnegotiationneeded for ${target_user}`);
+        try {
+          step(`pc.signalingState before createOffer: ${pc.signalingState}`);
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          step(`pc.signalingState after setLocalDescription: ${pc.signalingState}`);
+          const preD = connectionsRef.current.get(target_user);
+          updateUserData(target_user, { ...preD, pc });
+          addLog(target_user, `sdp: ${offer.sdp}`, "info");
+          addLog(target_user, `Sending offer to ${target_user}`, "info");
+          sendSignal({
+            type: "offer",
+            sdp: offer.sdp!,
+            username: username!,
+            target_user,
+          });
+          const preOfferSenders = pc.getSenders();
+          const preOfferTrackKinds = preOfferSenders.map(s => s.track?.kind).filter(Boolean);
+          step(`from onnegotiationneeded offer with senders: [${preOfferTrackKinds.join(", ")}] sent to ${target_user} `, {
+            status: "ok",
+          });
+        } catch (err) {
+          step(`from onnegotiationneeded negotiation needed to ${target_user} failed: ${err}`, {
+            status: "error",
+          });
+        }
+        end();
+      };
+    },
+    [updateUserData, addLog, sendSignal, username]
+  );
+
   // Helper to create and setup a peer connection with event handlers (excluding data channel logic)
   const createPeerConnectionWithHandlers = useCallback(
     (target_user: string) => {
@@ -304,14 +470,19 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
         pc
       );
       pc.onicecandidateerror = onicecandidateerror(target_user);
+      pc.ontrack = ontrack(target_user, pc);
+      pc.onnegotiationneeded = onnegotiationneeded(target_user, pc); // updated assignment
+
       return pc;
     },
     [
+      ontrack,
       onicecandidate,
       onconnectionstatechange,
       onsignalingstatechange,
       oniceconnectionstatechange,
       onicecandidateerror,
+      onnegotiationneeded, // updated dependency
     ]
   );
 
@@ -335,67 +506,71 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
     []
   );
 
+  // In negotiateConnection, log current senders/tracks and what is being added
   const negotiateConnection = useCallback(
     async (target_user: string) => {
+      const { step, end } = task(`negotiating connection to ${target_user}`);
+
       let pc = connectionsRef.current.get(target_user)?.pc;
       let dc = connectionsRef.current.get(target_user)?.dc;
+
       if (!pc) {
+        step('previous pc is not available, creating new one');
         addLog(target_user, `Creating connection to ${target_user}`, "info");
         pc = createPeerConnectionWithHandlers(target_user);
+        step('new pc created', { status: 'ok' });
       } else {
+        step('previous pc is available, starting renegotiation');
         addLog(target_user, `starting renegotiation with ${target_user}`);
       }
+      // --- LOGGING: Log current senders/tracks before negotiation ---
+      const currentSenders = pc.getSenders();
+      const currentTrackKinds = currentSenders.map(s => s.track?.kind).filter(Boolean);
+      step(`current senders before negotiation: [${currentTrackKinds.join(", ")}]`);
+      addLog(target_user, `Current senders before negotiation: [${currentTrackKinds.join(", ")}]`, "info");
       // Only create a new data channel if one does not exist
       if (!dc) {
+        step('no data channel found, creating new one');
         dc = pc.createDataChannel(`${username!}_` + target_user);
         dc.onmessage = getOnMessageHandler(target_user);
       }
-      pc.ontrack = ontrack(target_user, pc);
-      try {
-        addLog(target_user, `Calling addTrack for ${target_user}`, "info");
-        await addTrack(target_user, pc);
-        // console.log("negotiateConnection pc.getSenders()", pc.getSenders());
-      } catch (err) {
-        console.error(
-          target_user,
-          `Error in negotiateConnection addTrack: ${err}`
-        );
-        addLog(target_user, `Error in addTrack: ${err}`, "error");
-        const pre = connectionsRef.current.get(target_user);
-        updateUserData(target_user, { ...pre, pc, dc });
-        return;
-      }
       // Wait for signalingState to be stable before creating an offer
       if (pc.signalingState !== "stable") {
+        step('signalingState is not stable, waiting for it to become stable');
         addLog(
           target_user,
           `Waiting for signalingState to become stable before creating offer`,
           "info"
         );
         await waitForStable(pc);
+        step('signalingState is now stable', { status: 'ok' });
       }
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
+      // --- LOGGING: Log current senders/tracks just before offer ---
+      const preOfferSenders = pc.getSenders();
+      const preOfferTrackKinds = preOfferSenders.map(s => s.track?.kind).filter(Boolean);
+      addLog(target_user, `Current senders just before offer: [${preOfferTrackKinds.join(", ")}]`, "info");
+      // const offer = await pc.createOffer();
+      // await pc.setLocalDescription(offer);
       const preD = connectionsRef.current.get(target_user);
       updateUserData(target_user, { ...preD, pc, dc });
       addLog(target_user, `Sending offer to ${target_user}`, "info");
-      sendSignal({
-        type: "offer",
-        sdp: offer.sdp!,
-        username: username!,
-        target_user,
-      });
+      // sendSignal({
+      //   type: "offer",
+      //   sdp: offer.sdp!,
+      //   username: username!,
+      //   target_user,
+      // });
+      step(`offer with senders: [${preOfferTrackKinds.join(", ")}] and data channel: ${dc?.label} sent to ${target_user} `, { status: 'ok' });
+      end();
     },
     [
       updateUserData,
-      sendSignal,
+      // sendSignal,
       username,
       getOnMessageHandler,
       addLog,
       createPeerConnectionWithHandlers,
       waitForStable,
-      addTrack,
-      ontrack,
     ]
   );
 
@@ -420,23 +595,23 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       } else {
         addLog(from, `${from} start renegotiation`);
       }
-      pc.ontrack = ontrack(from, pc);
+      //   pc.ontrack = ontrack(from, pc);
       try {
         addLog(from, `Setting remote description (offer)`, "info");
         await pc.setRemoteDescription(offer);
       } catch (err) {
-        addLog(from, `Error setting remote description: ${err}`, "error");
+        addLog(from, `Error setting remote description for offer: ${err}`, "error");
         return;
       }
-      try {
-        addLog(from, `Calling addTrack for ${from}`, "info");
-        await addTrack(from, pc);
-      } catch (err) {
-        console.error(from, `Error in handleOffer addTrack: ${err}`);
-        addLog(from, `Error in addTrack: ${err}`, "error");
-        const pre = connectionsRef.current.get(from);
-        updateUserData(from, { ...pre, pc });
-      }
+      //   try {
+      //     addLog(from, `Calling addTrack for ${from}`, "info");
+      //     await addTrack(from, pc);
+      //   } catch (err) {
+      //     console.error(from, `Error in handleOffer addTrack: ${err}`);
+      //     addLog(from, `Error in addTrack: ${err}`, "error");
+      //     const pre = connectionsRef.current.get(from);
+      //     updateUserData(from, { ...pre, pc });
+      //   }
 
       let answer;
       try {
@@ -478,8 +653,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       removeLog,
       sendIceCandidates,
       createPeerConnectionWithHandlers,
-      ontrack,
-      addTrack,
+      //   addTrack,
     ]
   );
 
@@ -500,9 +674,18 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
         );
         return;
       }
-      await pc.setRemoteDescription(answer);
+      try {
+        addLog(from, `pc.remoteDescription: ${pc.remoteDescription}`, "info");
+        if(pc.signalingState !== "stable") {
+          await pc.setRemoteDescription(answer);
+        } else {
+          addLog(from, `pc.signalingState is stable, skipping setRemoteDescription`, "info");
+        }
+      } catch (error) {
+        addLog(from, `Error setting remote description for answer: ${error}`, "error");
+        return;
+      }
       addLog(from, `Received answer from ${from}`, "info");
-
       sendIceCandidates(from);
     },
     [addLog, sendIceCandidates]
@@ -704,6 +887,7 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       isMuted,
       sendSignal,
       username,
+      setCurrentTentId,
     ]
   );
 
@@ -721,14 +905,34 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       }
       try {
         addLog(target_user, "Retrying addTrack...", "info");
-        await addTrack(target_user, pc);
+        if (audioStream) {
+          const notWorking = !isAudioTracksWorking(pc);
+          if (notWorking) {
+            addAudioTrack(target_user);
+          } else {
+            continue;
+          }
+        } else {
+          addLog(
+            target_user,
+            "audio stream is not available for retrying addTrack",
+            "error"
+          );
+        }
+        // await addTrack(target_user, pc);
         addLog(target_user, "addTrack retry succeeded", "info");
         await negotiateConnection(target_user);
       } catch (err) {
         addLog(target_user, `addTrack retry failed: ${err}`, "error");
       }
     }
-  }, [addTrack, addLog, negotiateConnection]);
+  }, [
+    addLog,
+    negotiateConnection,
+    audioStream,
+    isAudioTracksWorking,
+    addAudioTrack,
+  ]);
 
   // Audio state getter functions
   const getPeerAudioState = useCallback(

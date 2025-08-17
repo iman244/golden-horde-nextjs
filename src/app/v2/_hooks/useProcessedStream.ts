@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocalVAD } from "./useLocalVAD";
 import { useStreamTrackController } from "./useStreamTrackController";
 import { createLogger } from "../_utils/logger";
@@ -37,16 +37,22 @@ export function useProcessedStream(
   const { isMuted, isDeafened, vadEnabled, vadThreshold } = voiceState;
 
   const originalStreamRef = useRef<MediaStream | null>(null);
-  const processedStreamRef = useRef<MediaStream | null>(null);
+  const [processedStream, setProcessedStream] = useState<MediaStream | null>(null);
+  const [isProcessedStreamReady, setIsProcessedStreamReady] = useState(false);
 
-  const mekeStreamReady = useCallback(async () => {
+  useEffect(() => {
+    if (processedStream) {
+      setIsProcessedStreamReady(true);
+    }
+  }, [processedStream]);
+
+  const makeStreamReady = useCallback(async () => {
     if (!startStream) return;
     const task = createTaskLogger("making stream ready");
     task.step("Checking if we have a stream", {
       status: "info",
     });
     let originalStream = originalStreamRef.current;
-    let processedStream = processedStreamRef.current;
 
     if (!originalStream) {
       task.step("No original stream found, getting new stream", {
@@ -70,46 +76,48 @@ export function useProcessedStream(
         task.end();
         throw error;
       }
-      processedStream = originalStream.clone();
-      processedStreamRef.current = processedStream;
+      setProcessedStream(originalStream.clone());
       task.step("Processed stream cloned, returning");
       task.end();
-      return processedStream;
+      return;
     }
+    
     task.step(
-      "Original stream is available, checking if we have a processed stream",
+      "Original stream is available, creating processed stream",
       {
         status: "info",
       }
     );
-    if (processedStream) {
-      task.step("Processed stream is available, skipping update", {
-        status: "ok",
-      });
-      task.end();
-      return processedStream;
-    } else {
-      task.step("No processed stream found, cloning original stream", {
-        status: "info",
-      });
-      processedStream = originalStream.clone();
-      processedStreamRef.current = processedStream;
-      task.step("Processed stream cloned, returning");
-      task.end();
-      return processedStream;
-    }
+    
+    // Always create processed stream if we have original stream
+    setProcessedStream(originalStream.clone());
+    task.step("Processed stream cloned, returning");
+    task.end();
   }, [getAudioStream, startStream]);
 
   const closeStream = useCallback(()=>{
     originalStreamRef.current = null;
-    processedStreamRef.current = null;
+    setProcessedStream(null);
   },[])
 
+  // Handle initial setup and cleanup
   useEffect(() => {
-    mekeStreamReady();
+    makeStreamReady();
 
     return closeStream;
-  }, [mekeStreamReady, startStream, closeStream]);
+  }, [makeStreamReady, closeStream]);
+
+  // Handle startStream changes
+  useEffect(() => {
+    if (startStream) {
+      // Only make stream ready if we don't already have a processed stream
+      if (!processedStream) {
+        makeStreamReady();
+      }
+    } else {
+      closeStream();
+    }
+  }, [startStream, processedStream, makeStreamReady, closeStream]);
   
   // VAD analysis
   const { isSpeaking, currentVolume, displayVolume } = useLocalVAD(
@@ -120,7 +128,7 @@ export function useProcessedStream(
 
   // Apply mute/deafen/VAD logic to the processed stream
   useStreamTrackController({
-    stream: processedStreamRef.current,
+    stream: processedStream,
     isMuted,
     isDeafened,
     vadEnabled,
@@ -129,7 +137,8 @@ export function useProcessedStream(
 
 
   return {
-    processedStream: processedStreamRef.current,
+    isProcessedStreamReady,
+    processedStream,
     mediaError,
     clearMediaError,
     closeStream,

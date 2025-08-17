@@ -10,6 +10,8 @@ import clsx from "clsx";
 import { useStreamContext } from "../_context/StreamContext";
 import useStream from "../_hooks/useStream";
 import { createLogger } from "../_utils/logger";
+import { HiMiniSpeakerWave } from "react-icons/hi2";
+
 
 // Pure helper function - moved outside component for performance
 const getSensitivityLabel = (threshold: number): string => {
@@ -37,7 +39,6 @@ const Settings = () => {
     setIsMuted,
   } = useStreamContext();
 
-
   // Local state and refs
   const [playUserAudio, setPlayUserAudio] = useState<boolean>(false);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -54,7 +55,6 @@ const Settings = () => {
     startStream: playUserAudio,
   });
 
-  
   // Effect 1: Manage mute/deafen state during audio preview
   useEffect(() => {
     const task = createTaskLogger(
@@ -121,6 +121,35 @@ const Settings = () => {
     task.end();
   }, [playUserAudio, isMuted, isDeafened, setIsDeafened, setIsMuted]);
 
+  const startAudioPreview = useCallback(async () => {
+    const task = createTaskLogger("starting audio preview");
+    const audioElement = audioRef.current;
+    try {
+      if (audioElement && stream && audioElement.srcObject !== stream) {
+        task.step("setting the stream preview to the audio element");
+        audioElement.srcObject = stream;
+        await audioElement.play();
+      }
+    } catch (error) {
+      task.step("error starting audio preview", { status: "error", error });
+      console.error("Error starting audio preview:", error);
+    }
+    task.end();
+  }, [stream]);
+
+  const stopAudioPreview = useCallback(() => {
+    const task = createTaskLogger("stopping audio preview");
+    const audioElement = audioRef.current;
+    task.step("stopping audio preview");
+    closeStream();
+    if (audioElement) {
+      task.step("stopping audio preview, pausing the audio element");
+      audioElement.srcObject = null;
+      audioElement.pause();
+    }
+    task.end();
+  }, [closeStream]);
+
   // Effect 2: Manage audio stream and playback
   useEffect(() => {
     const task = createTaskLogger(
@@ -132,30 +161,6 @@ const Settings = () => {
       return;
     }
     task.step("stream is ready, starting audio preview");
-    const audioElement = audioRef.current;
-
-    const startAudioPreview = async () => {
-      try {
-        if (audioElement && stream && audioElement.srcObject !== stream) {
-          task.step("setting the stream preview to the audio element");
-          audioElement.srcObject = stream;
-          await audioElement.play();
-        }
-      } catch (error) {
-        task.step("error starting audio preview", { status: "error", error });
-        console.error("Error starting audio preview:", error);
-      }
-    };
-
-    const stopAudioPreview = () => {
-      task.step("stopping audio preview");
-      closeStream();
-      if (audioElement) {
-        task.step("stopping audio preview, pausing the audio element");
-        audioElement.srcObject = null;
-        audioElement.pause();
-      }
-    };
 
     if (playUserAudio) {
       task.step("user audio preview is playing, starting audio preview");
@@ -168,27 +173,29 @@ const Settings = () => {
     task.end();
 
     return stopAudioPreview;
-  }, [stream, playUserAudio, closeStream]);
+  }, [stream, playUserAudio, closeStream, startAudioPreview, stopAudioPreview]);
 
   // Volume calculations (throttled to reduce re-renders)
   const roundedVolume = useMemo(
-    () => Math.round(displayVolume),
-    [displayVolume]
+    () => {
+      if (playUserAudio) {
+        return Math.round(displayVolume);
+      }
+      return 0;
+    },
+    [displayVolume, playUserAudio]
   );
   const volumePercentage = useMemo(() => {
-    return Math.max(0, Math.min(100, ((roundedVolume + 100) / 100) * 100));
-  }, [roundedVolume]);
-
-  // Computed values
-  //   const isTransmitting = useMemo(
-  //     () => (vadEnabled ? roundedVolume > vadThreshold : true),
-  //     [vadEnabled, roundedVolume, vadThreshold]
-  //   );
+    if (playUserAudio) {
+      return Math.max(0, Math.min(100, ((roundedVolume + 100) / 100) * 100));
+    }
+    return 0;
+  }, [roundedVolume, playUserAudio]);
 
   // JSX Components
   const VadToggleSection = useCallback(
     () => (
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-400">Input Sensitivity</span>
           <button
@@ -196,7 +203,7 @@ const Settings = () => {
             className={clsx(
               "text-xs px-2 py-1 rounded transition-colors",
               vadEnabled
-                ? "bg-green-600 text-white"
+                ? "bg-yellow-400 text-gray-900"
                 : "bg-gray-600 text-gray-300"
             )}
           >
@@ -210,13 +217,30 @@ const Settings = () => {
 
   const AudioPreviewSection = useCallback(
     () => (
-      <div className="flex justify-between items-center">
-        <button
-          className="text-xs text-gray-400"
-          onClick={() => setPlayUserAudio((prev) => !prev)}
-        >
-          {playUserAudio ? "Stop User Audio" : "Play User Audio"}
-        </button>
+      <div className="mt-6 p-4 bg-white/5 rounded-lg border border-white/10">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></div>
+            <span className="text-sm text-gray-300 font-medium">Audio Preview</span>
+          </div>
+          <button
+            className={clsx(
+              "px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200",
+              playUserAudio
+                ? "bg-red-600 text-white hover:bg-red-700"
+                : "bg-yellow-400 text-gray-900 hover:bg-yellow-300"
+            )}
+            onClick={() => setPlayUserAudio((prev) => !prev)}
+          >
+            {playUserAudio ? "Stop Preview" : "Start Preview"}
+          </button>
+        </div>
+        {playUserAudio && (
+          <div className="mt-3 text-xs text-gray-400 flex items-center gap-2">
+            <HiMiniSpeakerWave className="w-4 h-4" />
+            <span>Listening to your microphone input</span>
+          </div>
+        )}
         {playUserAudio && <audio ref={audioRef} autoPlay />}
       </div>
     ),
@@ -224,72 +248,80 @@ const Settings = () => {
   );
 
   return (
-    <div className="flex flex-col gap-2 flex-1 bg-[#181a20]">
-      <VadToggleSection />
-      <div className="bg-[#0f1015] p-3 rounded-lg border border-gray-700">
-        <div className="flex flex-col gap-3">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-400">
-              Threshold: {vadThreshold}dB
-            </span>
-            <span className="text-xs text-gray-500">
-              {getSensitivityLabel(vadThreshold)}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-400">
-              Current Volume: {roundedVolume}dB
-            </span>
-            <span
-              className={clsx(
-                "text-xs px-2 py-1 rounded",
-                isSpeaking
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-600 text-gray-300"
-              )}
-            >
-              {isSpeaking ? "TRANSMITTING" : "SILENT"}
-            </span>
-          </div>
-          <div className="relative w-full">
-            {/* Volume indicator background */}
-            <div className="absolute inset-0 h-2 bg-gray-700 rounded-lg overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-75"
-                style={{
-                  width: `${volumePercentage}%`,
-                  opacity: vadEnabled ? 0.6 : 0.3,
-                }}
-              />
-            </div>
+    <div className="v2-card">
+      <h3 className="v2-card-title">Voice Settings</h3>
 
-            {/* Threshold slider */}
-            <input
-              type="range"
-              min="-100"
-              max="0"
-              step="1"
-              value={vadThreshold}
-              onChange={(e) => setVadThreshold(parseInt(e.target.value))}
-              className="relative w-full h-2 bg-transparent rounded-lg appearance-none cursor-pointer z-10 volume-slider"
-              disabled={!vadEnabled}
+      <VadToggleSection />
+
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <span className="text-sm text-gray-400">
+            Threshold: {vadThreshold}dB
+          </span>
+          <span className="text-xs text-gray-500">
+            {getSensitivityLabel(vadThreshold)}
+          </span>
+        </div>
+
+        <div className="flex justify-between items-center">
+          <span className="text-sm text-gray-400">
+            Current Volume: {roundedVolume}dB
+          </span>
+          <span
+            className={clsx(
+              "text-xs px-2 py-1 rounded",
+              isSpeaking
+                ? "bg-green-600 text-white"
+                : "bg-gray-600 text-gray-300"
+            )}
+          >
+            {isSpeaking ? "TRANSMITTING" : "SILENT"}
+          </span>
+        </div>
+
+        <div className="relative w-full">
+          {/* Volume indicator background */}
+          <div className="absolute inset-0 h-2 bg-gray-700 rounded-lg overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-yellow-400 to-yellow-300 transition-all duration-75"
+              style={{
+                width: `${volumePercentage}%`,
+                opacity: vadEnabled ? 0.6 : 0.3,
+              }}
             />
           </div>
-          <div className="flex justify-between text-xs text-gray-500">
-            <span>Sensitive (-100dB)</span>
-            <span>Strict (0dB)</span>
-          </div>
-          <div className="text-xs text-gray-400 text-center mt-1">
-            Lower values = More sensitive • Higher values = Less sensitive
-          </div>
-          <div className="text-xs text-gray-400 mt-1">
-            Audio louder than {vadThreshold}dB will trigger transmission
-          </div>
-          <div className="text-xs text-gray-500 text-center mt-1">
-            Blue bar shows current volume level in real-time
-          </div>
+
+          {/* Threshold slider */}
+          <input
+            type="range"
+            min="-100"
+            max="0"
+            step="1"
+            value={vadThreshold}
+            onChange={(e) => setVadThreshold(parseInt(e.target.value))}
+            className="relative w-full h-2 bg-transparent rounded-lg appearance-none cursor-pointer z-10 volume-slider transform -translate-y-2 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-yellow-400 [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:hover:bg-yellow-300 [&::-webkit-slider-thumb]:transition-colors [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-yellow-400 [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow-lg [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:hover:bg-yellow-400"
+            disabled={!vadEnabled}
+          />
+        </div>
+
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>Sensitive (-100dB)</span>
+          <span>Strict (0dB)</span>
+        </div>
+
+        <div className="text-xs text-gray-400 text-center">
+          Lower values = More sensitive • Higher values = Less sensitive
+        </div>
+
+        <div className="text-xs text-gray-400">
+          Audio louder than {vadThreshold}dB will trigger transmission
+        </div>
+
+        <div className="text-xs text-gray-500 text-center">
+          Yellow bar shows current volume level in real-time
         </div>
       </div>
+
       <AudioPreviewSection />
     </div>
   );

@@ -20,14 +20,11 @@ export type MediaErrorType =
  */
 export const useUserMediaStream = ({
   constraints,
-//   enabled,
 }: {
   constraints: MediaStreamConstraints;
-//   enabled: boolean;
 }) => {
 //   log("Hook initialized", { enabled });
   const streamRef = useRef<MediaStream | null>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
   const [mediaError, setMediaError] = useState<MediaErrorType | null>(null);
 
   const getStream = useCallback(async () => {
@@ -41,7 +38,6 @@ export const useUserMediaStream = ({
     try {
       const newStream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = newStream;
-      setStream(newStream);
       setMediaError(null);
       return newStream;
     } catch (err) {
@@ -68,32 +64,10 @@ export const useUserMediaStream = ({
     }
   }, [constraints]);
 
-//   useEffect(() => {
-//     if (enabled) {
-//       log("useEffect fired: getting stream");
-//       getStream().catch(() => {
-//         // Error is set in state by getStream, no need to handle here.
-//       });
-//     } else {
-//       if (streamRef.current) {
-//         streamRef.current.getTracks().forEach((track) => track.stop());
-//         streamRef.current = null;
-//         setStream(null);
-//       }
-//     }
-
-//     return () => {
-//       if (streamRef.current) {
-//         streamRef.current.getTracks().forEach((track) => track.stop());
-//         streamRef.current = null;
-//         setStream(null);
-//       }
-//     };
-//   }, [enabled, getStream]);
 
   const clearMediaError = useCallback(() => {
     setMediaError(null);
   }, []);
 
-  return { stream, mediaError, clearMediaError, getStream };
+  return { stream: streamRef.current, mediaError, clearMediaError, getStream };
 }; 
