@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useTentRTCContext } from "../_context/TentRTCContext";
 import { useSimpleAudioDetection } from "../_hooks/useSimpleAudioDetection";
+import { useStreamContext } from "../_context/StreamContext";
 
 // Component to detect voice activity for remote users (simple detection, no user preferences)
 const UserAudioAnalyzer = ({
@@ -21,7 +22,8 @@ const UserAudioAnalyzer = ({
 };
 
 const Audios = () => {
-  const { connections, isDeafened } = useTentRTCContext();
+  const { isDeafened } = useStreamContext();
+  const { connections } = useTentRTCContext();
 
   return (
     <>
