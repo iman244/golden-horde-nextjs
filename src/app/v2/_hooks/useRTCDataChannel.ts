@@ -25,7 +25,7 @@ export function useRTCDataChannel() {
 
   // Handler for incoming messages (to assign to dc.onmessage)
   const getOnMessageHandler = useCallback(
-    (from: string) => (ev: MessageEvent<any>) => {
+    (from: string) => (ev: MessageEvent) => {
       setDcMessages((prev) => [
         ...prev,
         {
