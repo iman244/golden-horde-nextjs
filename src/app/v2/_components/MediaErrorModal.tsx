@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { useTentRTCContext } from "../_context/TentRTCContext";
 import { FiX } from "react-icons/fi";
+import { useStreamContext } from "../_context/StreamContext";
 
 const errorMessages: Record<string, string> = {
   NotAllowedError: "Microphone access was denied. Please check your browser permissions.",
@@ -9,7 +10,8 @@ const errorMessages: Record<string, string> = {
 };
 
 const MediaErrorModal = () => {
-  const { mediaError, clearMediaError, retryAddTrack } = useTentRTCContext();
+  const { mediaError, clearMediaError } = useStreamContext();
+  const { retryAddTrack } = useTentRTCContext();
 
   const errorMessage = useMemo(() => {
     if (!mediaError) return "";
