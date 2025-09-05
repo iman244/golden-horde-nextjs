@@ -891,6 +891,11 @@ const TentRTCProvider: FC<{ children: ReactNode }> = ({ children }) => {
       if (user === username || pre == undefined) {
         return;
       }
+
+      if (pre.shareScreenStream) {
+        pre.shareScreenStream.getTracks().forEach((track) => track.stop());
+      }
+      
       updateUserData(user, {
         ...pre,
         state: { ...pre.state, isSharingScreen: false },

@@ -52,7 +52,7 @@ const LocalUserInTent: FC = () => {
               className="text-gray-400 cursor-pointer hover:text-gray-200"
               size={16}
               title="Sharing Screen"
-              onClick={() => openTab("ShareScreen")}
+              onClick={() => openTab("ShareScreenPreview")}
             />
           )}
         </div>
