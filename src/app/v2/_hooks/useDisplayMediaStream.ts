@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export type DisplayMediaErrorType =
   | "NotAllowedError"
@@ -18,60 +18,59 @@ export type DisplayMediaErrorType =
  * and a function to manually get the stream.
  */
 export const useDisplayMediaStream = ({
-    options,
+  options,
+  onended,
 }: {
-    options?: DisplayMediaStreamOptions;
+  options?: DisplayMediaStreamOptions;
+  onended?: (ev: Event) => void;
 }) => {
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [mediaError, setMediaError] = useState<DisplayMediaErrorType | null>(null);
+  const [mediaError, setMediaError] = useState<DisplayMediaErrorType | null>(
+    null
+  );
 
-  const getStream = useCallback(async () => {
-    if (
-      stream &&
-      !stream.getTracks().some((t) => t.readyState === "ended")
-    ) {
-      return stream;
-    }
+  useEffect(()=>{
+    console.log("stream in useDisplayMediaStream changed", stream)
+  },[stream])
 
+  const getStream = useCallback(async (): Promise<MediaStream | undefined> => {
     try {
       const newStream = await navigator.mediaDevices.getDisplayMedia(options);
+      if (onended) {
+        newStream.getVideoTracks()[0].onended = onended;
+      }
+
       setStream(newStream);
       setMediaError(null);
       return newStream;
     } catch (err) {
-      let type: DisplayMediaErrorType;
-      if (err && typeof err === "object" && "name" in err) {
-        if (
-          err.name === "NotAllowedError" ||
-          err.name === "NotFoundError" ||
-          err.name === "NotReadableError" ||
-          err.name === "OverconstrainedError" ||
-          err.name === "SecurityError" ||
-          err.name === "AbortError"
-        ) {
-          type = err.name;
-        } else {
-          type = `Unknown display media error: ${err.name}`;
-        }
-      } else {
-        type = "Unknown display media error";
-      }
-      setMediaError(type);
-      console.error(`useShareScreenStream Error: ${type}`, err);
+      const error = err as Error;
+      const errorType: DisplayMediaErrorType = [
+        "NotAllowedError",
+        "NotFoundError",
+        "NotReadableError",
+        "OverconstrainedError",
+        "SecurityError",
+        "AbortError",
+      ].includes(error.name)
+        ? (error.name as DisplayMediaErrorType)
+        : "UnknownError";
+
+      setMediaError(errorType);
       throw err;
     }
-  }, [options, stream]);
+  }, [options, onended]);
 
   const stopStream = useCallback(() => {
     if (stream) {
       stream.getTracks().forEach((track) => track.stop());
       setStream(null);
     }
-  }, []);
+  }, [stream]);
 
   const clearMediaError = useCallback(() => {
     setMediaError(null);
   }, []);
 
   return { stream, mediaError, clearMediaError, getStream, stopStream };
-}; 
+};

@@ -3,14 +3,15 @@
  * Set a key to `true` to enable logging for that module during development.
  */
 const LOG_CONFIG: { [key: string]: boolean } = {
-  useStream: true,
+  useStream: false,
   useVoiceActivity: false,
-  useUserMediaStream: true,
+  useUserMediaStream: false,
   useStreamTrackController: false,
   useAudioPreview: false,
   TentRTCProvider: false,
   Settings: false,
-  useProcessedStream: true,
+  useProcessedStream: false,
+  useShareScreen: true,
 };
 
 type LogStatus = "ok" | "error" | "info";

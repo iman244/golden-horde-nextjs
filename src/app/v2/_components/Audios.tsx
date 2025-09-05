@@ -15,7 +15,9 @@ const UserAudioAnalyzer = ({
   const isSpeaking = useSimpleAudioDetection(stream, username);
 
   useEffect(() => {
-    console.log("isSpeaking", isSpeaking);
+    if(false) {
+      console.log("isSpeaking", isSpeaking);
+    }
   }, [isSpeaking]);
 
   return null; // Just detection, no visual component yet

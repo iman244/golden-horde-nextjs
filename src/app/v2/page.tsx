@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useHordesQuery } from "../hooks/useHordesQuery";
 import TentListItem from "./_components/TentListItem";
 import LogsContent from "./_components/LogsContent";
@@ -11,6 +11,9 @@ import { useAuth } from "../context/AuthContext";
 import UserPanel from "./_components/UserPanel";
 import RTCDataChannelPanel from "./_components/RTCDataChannelPanel";
 import Settings from "./_components/Settings";
+import { useUI } from "./_context";
+import SharedScreenPreview from "./_components/SharedScreenPreview";
+import ShareScreen from "./_components/ShareScreen";
 
 // [+] dot sabz
 // [+] mute
@@ -37,7 +40,6 @@ import Settings from "./_components/Settings";
 // audio device
 // audio device list
 
-export type Tab = "RTCDataChannel" | "Logs" | "Settings";
 
 const V2Page = () => {
   const { username } = useAuth();
@@ -45,11 +47,7 @@ const V2Page = () => {
   const hordes = useMemo(() => hordes_q.data?.data || [], [hordes_q]);
   const { wsLogs } = useTentRTCContext();
   const { logsMap } = useTentLogsContext();
-  const [tab, setTab] = useState<Tab>("RTCDataChannel");
-
-//   const openRTCDataChannel = useCallback(() => setTab("RTCDataChannel"), []);
-//   const openLogs = useCallback(() => setTab("Logs"), []);
-  const openTab = useCallback((tab: "RTCDataChannel" | "Logs" | "Settings") => setTab(tab), []);
+  const {tab, openTab} = useUI()
 
   // State for selected horde
   const [selectedHordeId, setSelectedHordeId] = useState(hordes[0]?.id || null);
@@ -121,6 +119,8 @@ const V2Page = () => {
           )}
           {tab == "RTCDataChannel" && <RTCDataChannelPanel />}
           {tab == "Settings" && <Settings />}
+          {tab == "ShareScreenPreview" && <SharedScreenPreview />}
+          {tab == "ShareScreen" && <ShareScreen />}
         </div>
       </div>
     </div>

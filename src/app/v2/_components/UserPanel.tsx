@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useMemo } from "react";
 import { useTentRTCContext } from "../_context/TentRTCContext";
 import { useAuth } from "../../context/AuthContext";
 import clsx from "clsx";
@@ -19,11 +19,11 @@ import OpenRTCDataChannelButton from "./OpenRTCDataChannelButton";
 import RTCDataChannelPanel from "./RTCDataChannelPanel";
 import OpenLogsButton from "./OpenLogsButton";
 import { Horde } from "@/app/data.types";
-import { Tab } from "../page";
 import Settings from "./Settings";
 import { useTentLogsContext } from "../_context/TentLogsContext";
 import { useStreamContext } from "../_context/StreamContext";
 import { useTentContext } from "../_context/TentProvider";
+import { Tab } from "../_context";
 
 interface UserPanelProps {
   tab: Tab;
@@ -46,13 +46,10 @@ const UserPanel: React.FC<UserPanelProps> = ({
     isDeafened,
     toggleDeafen,
     toggleMute,
-  } = useStreamContext();
-  const [shareScreen, setShareScreen] = useState(false);
 
-  const toggleShareScreen = useCallback(
-    () => setShareScreen((pre) => !pre),
-    []
-  );
+    isSharingScreen,
+    toggleShareScreen
+  } = useStreamContext();
 
   const selectedTent = useMemo(
     () => selectedHorde?.tents.find((t) => t.id === currentTentId),
@@ -96,12 +93,12 @@ const UserPanel: React.FC<UserPanelProps> = ({
               <button
                 className={clsx(
                   "imprt-action-container",
-                  shareScreen && "active"
+                  isSharingScreen && "active"
                 )}
                 aria-label="Share Screen"
                 onClick={toggleShareScreen}
               >
-                {shareScreen ? (
+                {isSharingScreen ? (
                   <LuMonitorX size={20} />
                 ) : (
                   <LuMonitorPlay size={20} />

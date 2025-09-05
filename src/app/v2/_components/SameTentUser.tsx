@@ -3,22 +3,25 @@ import { useTentRTCContext } from "../_context/TentRTCContext";
 import clsx from "clsx";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FaMicrophoneSlash } from "react-icons/fa";
-import { LuHeadphoneOff } from "react-icons/lu";
+import { LuHeadphoneOff, LuMonitorPlay } from "react-icons/lu";
 import { useSimpleAudioDetection } from "../_hooks/useSimpleAudioDetection";
+import { useUI } from "../_context";
 
 const SameTentUser: FC<{ user: string }> = ({ user }) => {
-  const {
-    connections,
-    reconnectToUser,
-    getPeerAudioState,
-  } = useTentRTCContext();
-  
+  const { connections, reconnectToUser, getPeerMediaState } =
+    useTentRTCContext();
+  const { openShareScreenTab } = useUI();
+
   const pc = useMemo(() => connections.get(user)?.pc, [connections, user]);
-  const stream = useMemo(() => connections.get(user)?.stream || null, [connections, user]);
+  const stream = useMemo(
+    () => connections.get(user)?.stream || null,
+    [connections, user]
+  );
+  const isSharingScreen = useMemo(() => connections.get(user)?.state.isSharingScreen || false, [connections, user]);
   const isSpeaking = useSimpleAudioDetection(stream, user);
 
   // Get audio state for the remote user
-  const audioState = getPeerAudioState(user);
+  const audioState = getPeerMediaState(user);
 
   const [ping, setPing] = useState<number | null>(null);
   // Context menu state
@@ -137,6 +140,14 @@ const SameTentUser: FC<{ user: string }> = ({ user }) => {
             />
           )}
         </div>
+        {isSharingScreen && (
+          <LuMonitorPlay
+            className="text-gray-400 cursor-pointer hover:text-gray-200"
+            size={16}
+            title="Sharing Screen"
+            onClick={() => openShareScreenTab(user)}
+          />
+        )}
         {/* Three-dot menu button */}
         <button
           ref={menuButtonRef}

@@ -7,6 +7,7 @@ import React, {
   SetStateAction,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
 } from "react";
 import useStream from "../_hooks/useStream";
@@ -67,6 +68,11 @@ const StreamProvider: FC<{ children: ReactNode }> = ({ children }) => {
     displayStream,
     isDisplayMediaStreamReady,
   } = useShareScreen();
+
+    useEffect(() => {
+      console.log("stream in StreamProvider changed", displayStream);
+    }, [displayStream]);
+  
 
   const {
     stream: audioStream,

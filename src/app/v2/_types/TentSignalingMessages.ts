@@ -16,7 +16,7 @@ export type TentSignalingMessages =
   | { type: "user_joined"; username: string }
   | { type: "user_left"; username: string }
   | { type: "failed"; username: string; target_user: string }
-  | { type: "audio_state_changed"; username: string; isMuted: boolean; isDeafened: boolean }
+  | { type: "syncing_state"; username: string; isMuted: boolean; isDeafened: boolean; isSharingScreen: boolean }
   | { type: "share_screen_started"; username: string; }
   | { type: "share_screen_stopped"; username: string; }
   | { type: "request_share_screen"; username: string; target_user: string }

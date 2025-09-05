@@ -8,6 +8,7 @@ import TentRTCProvider from "./_context/TentRTCContext";
 import TentLogsProvider from "./_context/TentLogsContext";
 import StreamProvider from "./_context/StreamContext";
 import TentProvider from "./_context/TentProvider";
+import UIProvider from "./_context/UIContext";
 
 const V2Layout: FC<{ children: ReactNode }> = ({ children }) => {
   const { authStatus } = useAuth();
@@ -20,7 +21,9 @@ const V2Layout: FC<{ children: ReactNode }> = ({ children }) => {
       <TentProvider>
         <TentLogsProvider>
           <StreamProvider>
-            <TentRTCProvider>{children}</TentRTCProvider>
+            <TentRTCProvider>
+              <UIProvider>{children}</UIProvider>
+            </TentRTCProvider>
           </StreamProvider>
         </TentLogsProvider>
       </TentProvider>

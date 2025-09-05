@@ -11,7 +11,8 @@ import { useStreamContext } from "../_context/StreamContext";
 import useStream from "../_hooks/useStream";
 import { createLogger } from "../_utils/logger";
 import { HiMiniSpeakerWave } from "react-icons/hi2";
-
+import { useTentRTCContext } from "../_context/TentRTCContext";
+import { useAuth } from "@/app/context/AuthContext";
 
 // Pure helper function - moved outside component for performance
 const getSensitivityLabel = (threshold: number): string => {
@@ -44,6 +45,8 @@ const Settings = () => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const wasMutedBefore = useRef<boolean | null>(null);
   const wasDeafenedBefore = useRef<boolean | null>(null);
+  const { username } = useAuth()
+  const { connections } = useTentRTCContext();
 
   const { isSpeaking, stream, closeStream, displayVolume } = useStream({
     voiceState: {
@@ -176,15 +179,12 @@ const Settings = () => {
   }, [stream, playUserAudio, closeStream, startAudioPreview, stopAudioPreview]);
 
   // Volume calculations (throttled to reduce re-renders)
-  const roundedVolume = useMemo(
-    () => {
-      if (playUserAudio) {
-        return Math.round(displayVolume);
-      }
-      return 0;
-    },
-    [displayVolume, playUserAudio]
-  );
+  const roundedVolume = useMemo(() => {
+    if (playUserAudio) {
+      return Math.round(displayVolume);
+    }
+    return 0;
+  }, [displayVolume, playUserAudio]);
   const volumePercentage = useMemo(() => {
     if (playUserAudio) {
       return Math.max(0, Math.min(100, ((roundedVolume + 100) / 100) * 100));
@@ -221,7 +221,9 @@ const Settings = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></div>
-            <span className="text-sm text-gray-300 font-medium">Audio Preview</span>
+            <span className="text-sm text-gray-300 font-medium">
+              Audio Preview
+            </span>
           </div>
           <button
             className={clsx(
@@ -321,6 +323,35 @@ const Settings = () => {
           Yellow bar shows current volume level in real-time
         </div>
       </div>
+
+      {username == "iman244" && <div
+        className="p-2 bg-blue-400 w-fit cursor-pointer"
+        onClick={() => {
+          connections.forEach((value, key) => {
+            console.log(
+              `Senders for ${key}`,
+              value.pc
+                .getSenders()
+                .map(
+                  (sender) =>
+                    `${sender.track?.label} ${sender.track?.readyState}`
+                )
+            );
+
+            console.log(
+              `Receivers for ${key}`,
+              value.pc
+                .getReceivers()
+                .map(
+                  (receiver) =>
+                    `${receiver.track?.label} ${receiver.track?.readyState}`
+                )
+            );
+          });
+        }}
+      >
+        log the seders and receivers
+      </div>}
 
       <AudioPreviewSection />
     </div>
